@@ -1,0 +1,359 @@
+#!/usr/bin/env node
+// Native desktop runtime preparation, development, testing and portable packaging.
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { chmod, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { delimiter, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { copyWindowsCrt } from './copy-windows-crt.mjs';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const [mode = 'dev', ...appArgs] = process.argv.slice(2);
+const uiModes = ['test-ui', 'test-ui-shaders', 'test-ui-corrector', 'test-inference', 'test-ui-inference'];
+const smoke = appArgs.length === 1 && appArgs[0] === '--smoke';
+if (!['dev', 'build', 'prepare', 'test', ...uiModes, 'test-inference-performance', 'dev-ui', 'build-ui'].includes(mode)
+    || (appArgs.length && !['dev', 'dev-ui'].includes(mode) && !(smoke && uiModes.includes(mode)))) {
+  throw new Error('Usage: node scripts/desktop.mjs dev|dev-ui [application arguments] | build | prepare | test | test-ui|test-ui-shaders|test-ui-corrector|test-inference|test-ui-inference [--smoke] | test-inference-performance | build-ui');
+}
+const platform = process.platform;
+const arch = process.arch;
+const triples = {
+  'darwin-arm64': 'aarch64-apple-darwin', 'darwin-x64': 'x86_64-apple-darwin',
+  'win32-x64': 'x86_64-pc-windows-msvc',
+  'linux-x64': 'x86_64-unknown-linux-gnu', 'linux-arm64': 'aarch64-unknown-linux-gnu',
+};
+const triple = triples[`${platform}-${arch}`];
+if (!triple) throw new Error(`Unsupported native desktop platform: ${platform}/${arch}`);
+if (process.env.CARGO_BUILD_TARGET && process.env.CARGO_BUILD_TARGET !== triple) {
+  throw new Error('desktop.mjs packages the host architecture only; run on a matching native host');
+}
+const cache = join(root, 'node_modules', '.cache', 'open-quartz');
+const target = join(root, 'apps', 'open_quartz_slint', 'target');
+const manifest = join(root, 'apps', 'open_quartz_slint', 'Cargo.toml');
+const helperRuntime = join(root, 'apps', 'open_quartz_slint', 'runtime');
+const runtime = join(cache, `desktop-runtime-${platform}-${arch}`);
+const exe = `open_quartz_slint${platform === 'win32' ? '.exe' : ''}`;
+const ortName = platform === 'win32' ? 'onnxruntime.dll'
+  : platform === 'darwin' ? 'libonnxruntime.1.21.0.dylib' : 'libonnxruntime.so.1.21.0';
+
+async function run(command, args, options = {}) {
+  await new Promise((accept, reject) => {
+    const child = spawn(command, args, { cwd: root, stdio: 'inherit', detached: platform !== 'win32', ...options });
+    let interrupted;
+    let force;
+    const forward = (signal, hard = false) => {
+      if (!child.pid) return;
+      if (platform === 'win32') {
+        const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', ...(hard ? ['/F'] : [])], { stdio: 'ignore' });
+        killer.on('error', () => child.kill(signal));
+      } else {
+        try { process.kill(-child.pid, signal); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+      }
+    };
+    const interrupt = (signal) => {
+      interrupted = signal;
+      forward(signal);
+      force ??= setTimeout(() => forward('SIGKILL', true), 10_000);
+    };
+    const onSigint = () => interrupt('SIGINT');
+    const onSigterm = () => interrupt('SIGTERM');
+    const cleanup = () => {
+      clearTimeout(force);
+      process.removeListener('SIGINT', onSigint);
+      process.removeListener('SIGTERM', onSigterm);
+    };
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+    child.once('error', (error) => { cleanup(); reject(error); });
+    child.once('close', (code, signal) => {
+      cleanup();
+      if (interrupted) process.exitCode = interrupted === 'SIGINT' ? 130 : 143;
+      if (code === 0 && !interrupted) accept();
+      else reject(new Error(`${command} failed (${interrupted || signal || code})`));
+    });
+  });
+}
+async function requireFile(path) {
+  const info = await stat(path).catch(() => null);
+  if (!info?.isFile() || info.size === 0) throw new Error(`Required desktop resource missing or empty: ${path}`);
+}
+async function download(url, name, sha256) {
+  const path = join(cache, name);
+  let bytes = await readFile(path).catch(() => null);
+  if (!bytes) {
+    const response = await fetch(url, { signal: AbortSignal.timeout(600_000) });
+    if (!response.ok) throw new Error(`Runtime download failed (${response.status}): ${url}`);
+    bytes = Buffer.from(await response.arrayBuffer());
+  }
+  if (sha256 && createHash('sha256').update(bytes).digest('hex') !== sha256) {
+    throw new Error(`Runtime checksum mismatch: remove ${path} and retry`);
+  }
+  await writeFile(path, bytes);
+  return path;
+}
+async function unpack(archive, directory) {
+  await rm(directory, { recursive: true, force: true });
+  await mkdir(directory, { recursive: true });
+  await run(platform === 'win32' ? 'tar.exe' : 'tar', ['-xf', archive, '-C', directory]);
+}
+async function copyRequired(source, destination) {
+  await requireFile(source);
+  await copyFile(source, destination);
+}
+async function prepareRuntime() {
+  await mkdir(cache, { recursive: true });
+  await rm(runtime, { recursive: true, force: true });
+  await mkdir(runtime, { recursive: true });
+  await run(process.execPath, ['scripts/copy-ffmpeg.mjs']);
+  const ffmpeg = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  await copyRequired(join(helperRuntime, ffmpeg), join(runtime, ffmpeg));
+  if (platform !== 'win32') await chmod(join(runtime, ffmpeg), 0o755);
+  await copyRequired(join(helperRuntime, 'FFMPEG-NOTICE.txt'), join(runtime, 'FFMPEG-NOTICE.txt'));
+  if (platform === 'darwin') {
+    const sdk = join(helperRuntime, 'ffmpeg-media');
+    for (const file of ['libavcodec.62.dylib', 'libavformat.62.dylib', 'libavutil.60.dylib', 'libswscale.9.dylib', 'libswresample.6.dylib']) {
+      await copyRequired(join(sdk, 'lib', file), join(runtime, file));
+    }
+    for (const file of ['COPYING.LGPLv2.1', 'FFMPEG-MEDIA-NOTICE.txt', 'BUILD-CONFIG.txt', 'ffmpeg-8.1.1.tar.xz', 'ffmpeg-videotoolbox-hardware.patch', 'ffmpeg-videotoolbox-reorder.patch']) {
+      await copyRequired(join(sdk, file), join(runtime, file));
+    }
+  }
+  if (platform === 'win32') {
+    for (const name of await readdir(join(helperRuntime, 'ffmpeg-shared', 'bin'))) {
+      if (name.toLowerCase().endsWith('.dll')) {
+        await copyRequired(join(helperRuntime, 'ffmpeg-shared', 'bin', name), join(runtime, name));
+      }
+    }
+    for (const name of ['avcodec-63.dll', 'avformat-63.dll', 'avutil-61.dll', 'swresample-7.dll']) {
+      await requireFile(join(runtime, name));
+    }
+    await cp(join(helperRuntime, 'ffmpeg-shared', 'doc'), join(runtime, 'ffmpeg-doc'), { recursive: true });
+    await cp(join(helperRuntime, 'ffmpeg-shared', 'LICENSE.txt'), join(runtime, 'FFMPEG-LICENSE.txt'));
+    const url = 'https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.21.0/microsoft.ml.onnxruntime.directml.1.21.0.nupkg';
+    const archive = await download(url, 'ort-directml-1.21.0.nupkg', '12bed6e1e870f30e0150e039ebb6853da32eba381eda1c373faeeb17168785e6');
+    const extracted = join(cache, 'ort-directml-1.21.0');
+    await unpack(archive, extracted);
+    await copyRequired(join(extracted, 'runtimes', 'win-x64', 'native', ortName), join(runtime, ortName));
+    await copyRequired(join(extracted, 'LICENSE'), join(runtime, 'ONNXRUNTIME-LICENSE.txt'));
+    await copyRequired(join(extracted, 'ThirdPartyNotices.txt'), join(runtime, 'ONNXRUNTIME-NOTICES.txt'));
+    // This version is the native dependency declared by Microsoft's ORT 1.21.0 package.
+    const dmlUrl = 'https://api.nuget.org/v3-flatcontainer/microsoft.ai.directml/1.15.4/microsoft.ai.directml.1.15.4.nupkg';
+    const dml = join(cache, 'directml-1.15.4');
+    await unpack(await download(dmlUrl, 'directml-1.15.4.nupkg'), dml);
+    await copyRequired(join(dml, 'bin', 'x64-win', 'DirectML.dll'), join(runtime, 'DirectML.dll'));
+    // Keep the full dependency distribution, including its redistributable license.
+    await cp(dml, join(runtime, 'directml-distribution'), { recursive: true });
+    await writeFile(join(runtime, 'ONNXRUNTIME-SOURCE.txt'), `${url}\nDirectML dependency: ${dmlUrl}\n`);
+    // FFMPEG_DIR is also required by ffmpeg-sys-next when Windows D3D12 is enabled.
+    await requireFile(join(helperRuntime, 'ffmpeg-shared', 'include', 'libavcodec', 'avcodec.h'));
+    await requireFile(join(helperRuntime, 'ffmpeg-shared', 'lib', 'avcodec.lib'));
+    await copyWindowsCrt(runtime);
+  } else {
+    const url = 'https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.21.0/microsoft.ml.onnxruntime.1.21.0.nupkg';
+    const digest = '359b4782cfa2e288e6c4bbb9da1c231b085fb8e0d149faf8c3c843f54576559b';
+    const extracted = join(cache, 'ort-cpu-1.21.0');
+    await unpack(await download(url, 'ort-cpu-1.21.0.nupkg', digest), extracted);
+    const rid = `${platform === 'darwin' ? 'osx' : 'linux'}-${arch}`;
+    const source = join(extracted, 'runtimes', rid, 'native');
+    const library = platform === 'darwin' ? 'libonnxruntime.dylib' : 'libonnxruntime.so';
+    await copyRequired(join(source, library), join(runtime, ortName));
+    if (platform === 'linux') {
+      const provider = 'libonnxruntime_providers_shared.so';
+      await copyRequired(join(source, provider), join(runtime, provider));
+    }
+    await copyRequired(join(extracted, 'LICENSE'), join(runtime, 'ONNXRUNTIME-LICENSE.txt'));
+    await copyRequired(join(extracted, 'ThirdPartyNotices.txt'), join(runtime, 'ONNXRUNTIME-NOTICES.txt'));
+    await writeFile(join(runtime, 'ONNXRUNTIME-SOURCE.txt'), `${url}\nSHA-256: ${digest}\n`);
+  }
+  await requireFile(join(runtime, ortName));
+}
+function nativeEnv() {
+  const env = {
+    ...process.env,
+    CARGO_TARGET_DIR: target,
+    ORT_DYLIB_PATH: join(runtime, ortName),
+    OPEN_QUARTZ_FFMPEG_PATH: join(runtime, platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'),
+    PATH: `${runtime}${delimiter}${process.env.PATH || ''}`,
+  };
+  // Do not let Cargo put a host-target build in a nested cross-target directory.
+  delete env.CARGO_BUILD_TARGET;
+  if (platform === 'win32') env.FFMPEG_DIR = join(helperRuntime, 'ffmpeg-shared');
+  if (platform === 'darwin') {
+    delete env.FFMPEG_DIR;
+    env.PKG_CONFIG_PATH = join(helperRuntime, 'ffmpeg-media', 'lib', 'pkgconfig');
+    env.DYLD_LIBRARY_PATH = runtime;
+  }
+  return env;
+}
+async function installRuntime(directory) {
+  await rm(join(directory, 'runtime'), { recursive: true, force: true });
+  await cp(runtime, join(directory, 'runtime'), { recursive: true });
+  if (platform === 'win32') {
+    // ffmpeg-next imports DLLs before main; PATH setup inside Rust is too late.
+    for (const file of await readdir(runtime)) {
+      if (file.toLowerCase().endsWith('.dll')) await copyRequired(join(runtime, file), join(directory, file));
+    }
+  }
+}
+async function verifyStartup(binary) {
+  const env = { ...process.env };
+  delete env.ORT_DYLIB_PATH;
+  delete env.OPEN_QUARTZ_FFMPEG_PATH;
+  delete env.DYLD_LIBRARY_PATH;
+  delete env.DYLD_FALLBACK_LIBRARY_PATH;
+  await run(binary, ['--help'], { env });
+}
+async function packageDesktop(binary) {
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  const bundleVersion = pkg.version.match(/^\d+\.\d+\.\d+/)?.[0];
+  if (!bundleVersion) throw new Error(`Invalid desktop package version: ${pkg.version}`);
+  const output = join(root, 'dist-desktop');
+  const label = `OpenQuartz-${pkg.version}-${platform === 'win32' ? 'windows' : platform === 'darwin' ? 'macos' : 'linux'}-${arch}`;
+  const stagingRoot = join(output, `${label}.staging`);
+  const staging = join(stagingRoot, label);
+  await mkdir(output, { recursive: true });
+  await rm(stagingRoot, { recursive: true, force: true });
+  await mkdir(staging, { recursive: true });
+  const extension = platform === 'linux' ? '.tar.gz' : '.zip';
+  const archive = join(output, `${label}${extension}`);
+  const partialArchive = join(output, `${label}.partial${extension}`);
+  try {
+    if (platform === 'darwin') {
+      const app = join(staging, 'Open Quartz.app');
+      const contents = join(app, 'Contents');
+      const resources = join(contents, 'Resources');
+      await mkdir(join(contents, 'MacOS'), { recursive: true });
+      await mkdir(resources, { recursive: true });
+      await copyRequired(binary, join(contents, 'MacOS', exe));
+      await chmod(join(contents, 'MacOS', exe), 0o755);
+      await cp(runtime, join(resources, 'runtime'), { recursive: true });
+      await copyRequired(join(root, 'apps', 'open_quartz_slint', 'icons', 'icon.icns'), join(resources, 'icon.icns'));
+      await copyRequired(join(root, 'LICENSE'), join(resources, 'LICENSE.txt'));
+      await writeFile(join(contents, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>Open Quartz</string>
+<key>CFBundleDisplayName</key><string>Open Quartz</string>
+<key>CFBundleIdentifier</key><string>com.openquartz.app</string>
+<key>CFBundleExecutable</key><string>${exe}</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleIconFile</key><string>icon.icns</string>
+<key>CFBundleShortVersionString</key><string>${bundleVersion}</string>
+<key>CFBundleVersion</key><string>${bundleVersion}</string>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>LSBackgroundOnly</key><false/>
+<key>LSUIElement</key><false/>
+<key>NSHighResolutionCapable</key><true/>
+<key>NSCameraUsageDescription</key><string>Open Quartz uses the selected camera as a video input in your project.</string>
+</dict></plist>\n`);
+      // Ad-hoc signing makes the assembled bundle internally consistent, not notarized.
+      for (const file of await readdir(join(resources, 'runtime'))) {
+        if (file === 'ffmpeg' || file.endsWith('.dylib')) {
+          await run('codesign', ['--force', '--sign', '-', join(resources, 'runtime', file)]);
+        }
+      }
+      await run('codesign', ['--force', '--deep', '--sign', '-', app]);
+      await verifyStartup(join(contents, 'MacOS', exe));
+      await run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', app, partialArchive]);
+    } else {
+      await copyRequired(binary, join(staging, exe));
+      await installRuntime(staging);
+      await copyRequired(join(root, 'LICENSE'), join(staging, 'LICENSE.txt'));
+      await copyRequired(join(root, 'apps', 'open_quartz_slint', 'icons', platform === 'win32' ? 'icon.ico' : 'icon.png'),
+        join(staging, platform === 'win32' ? 'icon.ico' : 'icon.png'));
+      await verifyStartup(join(staging, exe));
+      if (platform === 'win32') {
+        await requireFile(join(staging, 'runtime', 'open-quartz-screensaver-stub.exe'));
+        const quote = (value) => `'${value.replaceAll("'", "''")}'`;
+        await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+          `$shell = New-Object -ComObject WScript.Shell; ` +
+          `$link = $shell.CreateShortcut(${quote(join(staging, 'Open Quartz.lnk'))}); ` +
+          `$link.TargetPath = ${quote(join(staging, exe))}; ` +
+          `$link.IconLocation = ${quote(join(staging, 'icon.ico'))}; ` +
+          `$link.Description = 'Open Quartz native desktop'; $link.Save()`]);
+        await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+          `Compress-Archive -LiteralPath ${quote(staging)} -DestinationPath ${quote(partialArchive)} -Force`]);
+      } else {
+        await chmod(join(staging, exe), 0o755);
+        await run('tar', ['-czf', partialArchive, '-C', stagingRoot, label]);
+      }
+    }
+    await rm(archive, { force: true });
+    await rename(partialArchive, archive);
+    const directory = join(output, label);
+    await rm(directory, { recursive: true, force: true });
+    await rename(staging, directory);
+    await rm(stagingRoot, { recursive: true, force: true });
+    console.log(`[desktop] Packaged ${directory}\n[desktop] Archive ${archive}`);
+  } catch (error) {
+    await rm(stagingRoot, { recursive: true, force: true });
+    await rm(partialArchive, { force: true });
+    throw error;
+  }
+}
+
+try {
+await prepareRuntime();
+const env = nativeEnv();
+let inferenceReferenceFailure;
+if (['test-inference', 'test-ui-inference', 'test-inference-performance'].includes(mode)) {
+  if (!['darwin', 'win32'].includes(platform)) throw new Error('The seven-model suite requires a native Metal or Direct3D 12 GPU');
+  const output = resolve(env.OPEN_QUARTZ_INFERENCE_E2E_OUTPUT || join(root, 'test-results', smoke ? 'inference-e2e-smoke' : 'inference-e2e'));
+  env.OPEN_QUARTZ_INFERENCE_E2E_OUTPUT = output;
+  env.OPEN_QUARTZ_INFERENCE_E2E_MODEL = smoke ? 'u2netp' : '';
+  if (!env.OPEN_QUARTZ_INFERENCE_E2E_MANIFEST) {
+    await run(process.execPath, ['scripts/prepare-inference-e2e.mjs', '--output-dir', output], { env });
+    env.OPEN_QUARTZ_INFERENCE_E2E_MANIFEST = join(output, 'manifest.json');
+  }
+  if (mode === 'test-inference') {
+    const testArgs = ['test', '--locked', '--manifest-path', manifest, '--features', 'inference-e2e'];
+    const productionEnv = platform === 'darwin'
+      ? { ...env, ORT_DYLIB_PATH: join(output, 'forbidden-production-ort.dylib') } : env;
+    await run('cargo', [...testArgs, 'inference_e2e_production', '--', '--ignored', '--test-threads=1'],
+      { env: productionEnv });
+    try {
+      await run('cargo', [...testArgs, 'inference_e2e_reference', '--', '--ignored', '--test-threads=1'], { env });
+    } catch (error) {
+      inferenceReferenceFailure = error;
+      console.error('[inference] Independent numerical reference failed; collecting native UI display diagnostics without waiving the failure.');
+    }
+  }
+}
+if (mode === 'prepare') {
+  console.log(`[desktop] Runtime: ${runtime}`);
+} else if (mode === 'test-inference-performance') {
+  await run(process.execPath, ['scripts/inference-performance.mjs'], { env });
+} else if (mode === 'test') {
+  if (platform === 'win32') {
+    // The redistributable LGPL runtime can decode H.264. The test fixture
+    // generator uses a separate encoder and is never copied into the package.
+    const { default: installer } = await import('@ffmpeg-installer/ffmpeg');
+    env.OPEN_QUARTZ_TEST_FFMPEG_PATH = installer.path;
+  }
+  await run('cargo', ['test', '--locked', '--manifest-path', manifest], { env });
+} else {
+  if (platform === 'win32') {
+    await run(process.execPath, ['scripts/build-screensaver-stub.mjs'], { env });
+    await copyRequired(join(helperRuntime, 'open-quartz-screensaver-stub.exe'), join(runtime, 'open-quartz-screensaver-stub.exe'));
+  }
+  const release = mode === 'build';
+  const automation = uiModes.includes(mode) || ['dev-ui', 'build-ui'].includes(mode);
+  await run('cargo', ['build', '--locked', '--manifest-path', manifest, ...(release ? ['--release'] : []), ...(automation ? ['--features', 'ui-automation'] : [])], { env });
+  const directory = join(target, release ? 'release' : 'debug');
+  const binary = join(directory, exe);
+  await installRuntime(directory);
+  if (release) await packageDesktop(binary);
+  else if (uiModes.includes(mode)) {
+    const suite = mode === 'test-ui-shaders' ? '--shaders' : mode === 'test-ui-corrector' ? '--corrector'
+      : ['test-inference', 'test-ui-inference'].includes(mode) ? '--inference' : null;
+    await run(process.execPath, ['scripts/slint-ui-test.mjs', binary,
+      ...(suite ? [suite] : []), ...(smoke ? ['--smoke'] : [])], { env });
+  }
+  else if (mode === 'build-ui') console.log(`[desktop] UI automation binary: ${binary}`);
+  else await run(binary, appArgs, { env: automation ? { ...env, SLINT_MCP_PORT: env.SLINT_MCP_PORT || '8080' } : env });
+}
+if (inferenceReferenceFailure) throw inferenceReferenceFailure;
+} catch (error) {
+  console.error(error.stack || String(error));
+  process.exitCode ||= 1;
+}

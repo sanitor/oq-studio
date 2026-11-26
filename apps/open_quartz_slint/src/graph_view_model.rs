@@ -1,0 +1,430 @@
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::time::{Duration, Instant};
+
+use open_quartz::{DataType, Graph, InputMode, NodeType, Port, Project, ProjectNode};
+use slint::{ModelRc, VecModel};
+
+use crate::{GraphEdge, GraphNode, GraphPort};
+
+const NODE_WIDTH: f32 = 200.0;
+const PORT_TOP: f32 = 41.0;
+const PORT_SPACING: f32 = 26.0;
+const CONTENT_PADDING: f32 = 24.0;
+
+pub struct GraphViewModel {
+    pub nodes: ModelRc<GraphNode>,
+    pub edges: ModelRc<GraphEdge>,
+    pub content_width: f32,
+    pub content_height: f32,
+    pub origin_x: f32,
+    pub origin_y: f32,
+    pub node_count: usize,
+    pub edge_count: usize,
+    pub projection_duration: Duration,
+}
+
+impl GraphViewModel {
+    pub fn from_project(project: &Project, selected_node_ids: &BTreeSet<String>) -> Self {
+        Self::from_graph(project.graph(), selected_node_ids)
+    }
+
+    pub fn from_graph(graph: &Graph, selected_node_ids: &BTreeSet<String>) -> Self {
+        let started = Instant::now();
+        let node_indices = graph
+            .nodes()
+            .iter()
+            .enumerate()
+            .map(|(index, node)| (node.id.as_str(), index))
+            .collect::<HashMap<_, _>>();
+        let connected_inputs = graph
+            .edges()
+            .iter()
+            .map(|edge| (edge.target.as_str(), edge.target_handle.as_str()))
+            .collect::<HashSet<_>>();
+        // Tight graph-space bounds keep Fit View independent of the world's origin.
+        let bounds = graph
+            .nodes()
+            .iter()
+            .map(|node| {
+                let x = node.position.x as f32;
+                let y = node.position.y as f32;
+                let height = node_height(node);
+                (x, y, x + node_width(node), y + height)
+            })
+            .reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)));
+        let (mut min_x, min_y, mut max_x, max_y) = bounds.unwrap_or((0.0, 0.0, 0.0, 0.0));
+        // Include the Bezier control hull, including backwards-running connections.
+        for edge in graph.edges() {
+            if let (Some(&source), Some(&target)) = (
+                node_indices.get(edge.source.as_str()),
+                node_indices.get(edge.target.as_str()),
+            ) {
+                min_x = min_x.min(graph.nodes()[target].position.x as f32 - 48.0);
+                max_x = max_x.max(
+                    graph.nodes()[source].position.x as f32
+                        + node_width(&graph.nodes()[source])
+                        + 48.0,
+                );
+            }
+        }
+        let origin_x = CONTENT_PADDING - min_x;
+        let origin_y = CONTENT_PADDING - min_y;
+        let content_width = max_x - min_x + CONTENT_PADDING * 2.0;
+        let content_height = max_y - min_y + CONTENT_PADDING * 2.0;
+        let nodes = graph
+            .nodes()
+            .iter()
+            .map(|node| GraphNode {
+                node_id: node.id.as_str().into(),
+                label: node.data.label.as_str().into(),
+                kind: format!("{:?}", node.node_type).into(),
+                title: node_title(node).into(),
+                status: node_status(node, &connected_inputs).into(),
+                preview: slint::Image::default(),
+                has_preview: false,
+                preview_top: port_body_height(node) + 2.0,
+                preview_height: preview_height(node),
+                preview_expanded: node.data.extra.get("expanded").and_then(serde_json::Value::as_bool).unwrap_or(true),
+                resolution: Default::default(),
+                x: node.position.x as f32,
+                y: node.position.y as f32,
+                width: node_width(node),
+                height: node_height(node),
+                ports: ModelRc::new(VecModel::from(
+                    node.data
+                        .inputs
+                        .iter()
+                        .enumerate()
+                        .map(|(index, port)| {
+                            project_port(
+                                port,
+                                index,
+                                false,
+                                node,
+                                connected_inputs.contains(&(node.id.as_str(), port.id.as_str())),
+                            )
+                        })
+                        .chain(
+                            node.data
+                                .outputs
+                                .iter()
+                                .enumerate()
+                                .map(|(index, port)| project_port(port, index, true, node, true)),
+                        )
+                        .collect::<Vec<_>>(),
+                )),
+                selected: selected_node_ids.contains(&node.id),
+            })
+            .collect::<Vec<_>>();
+        let edges = graph
+            .edges()
+            .iter()
+            .filter_map(|edge| {
+                let source_index = *node_indices.get(edge.source.as_str())?;
+                let target_index = *node_indices.get(edge.target.as_str())?;
+                let source = &graph.nodes()[source_index];
+                let target = &graph.nodes()[target_index];
+                Some(GraphEdge {
+                    edge_id: edge.id.as_str().into(),
+                    source_index: source_index as i32,
+                    target_index: target_index as i32,
+                    source_x: source.position.x as f32 + node_width(source),
+                    source_y: source.position.y as f32
+                        + port_y(
+                            source
+                                .data
+                                .outputs
+                                .iter()
+                                .position(|port| port.id == edge.source_handle)?,
+                            source,
+                            true,
+                        ),
+                    target_x: target.position.x as f32,
+                    target_y: target.position.y as f32
+                        + port_y(
+                            target
+                                .data
+                                .inputs
+                                .iter()
+                                .position(|port| port.id == edge.target_handle)?,
+                            target,
+                            false,
+                        ),
+                })
+            })
+            .collect::<Vec<_>>();
+        let projection_duration = started.elapsed();
+        let node_count = nodes.len();
+        let edge_count = edges.len();
+        Self {
+            nodes: ModelRc::new(VecModel::from(nodes)),
+            edges: ModelRc::new(VecModel::from(edges)),
+            content_width,
+            content_height,
+            origin_x,
+            origin_y,
+            node_count,
+            edge_count,
+            projection_duration,
+        }
+    }
+}
+
+/// Resolve a captured port drag on release. The originating TouchArea owns
+/// pointer capture, so the destination never receives a click or pointer-up.
+/// Coordinates and slop are in graph/world units, independent of pan/zoom.
+pub fn port_at(
+    nodes: &dyn slint::Model<Data = GraphNode>,
+    x: f32,
+    y: f32,
+    slop: f32,
+) -> Option<(String, String, bool)> {
+    use slint::Model;
+    if !x.is_finite() || !y.is_finite() || !slop.is_finite() || slop < 0.0 {
+        return None;
+    }
+    // Later nodes paint over earlier nodes. Do not connect through their body.
+    for index in (0..nodes.row_count()).rev() {
+        let Some(node) = nodes.row_data(index) else {
+            continue;
+        };
+        if x < node.x - slop
+            || x > node.x + node.width + slop
+            || y < node.y
+            || y > node.y + node.height
+        {
+            continue;
+        }
+        let mut hit = None;
+        let mut nearest = f32::INFINITY;
+        for port in node.ports.iter() {
+            let left = if node.kind == "Math" && port.output {
+                node.width / 2.0
+            } else {
+                0.0
+            };
+            let right = if node.kind == "Math" && !port.output {
+                node.width / 2.0
+            } else {
+                node.width
+            };
+            let distance = (y - node.y - port.y).abs();
+            if x >= node.x + left - slop
+                && x <= node.x + right + slop
+                && distance <= 11.0 + slop
+                && distance < nearest
+            {
+                nearest = distance;
+                hit = Some((
+                    node.node_id.to_string(),
+                    port.port_id.to_string(),
+                    port.output,
+                ));
+            }
+        }
+        return hit;
+    }
+    None
+}
+
+fn node_width(node: &ProjectNode) -> f32 {
+    if node.node_type == NodeType::Math {
+        120.0
+    } else {
+        NODE_WIDTH
+    }
+}
+
+fn port_y(index: usize, node: &ProjectNode, output: bool) -> f32 {
+    if node.node_type == NodeType::Math {
+        return 39.0 + index as f32 * 22.0;
+    }
+    let offset = if output && !node.data.inputs.is_empty() {
+        node.data.inputs.len() as f32 * PORT_SPACING + 1.0
+    } else {
+        0.0
+    };
+    PORT_TOP + offset + index as f32 * PORT_SPACING
+}
+
+fn port_body_height(node: &ProjectNode) -> f32 {
+    if node.node_type == NodeType::Math {
+        28.0 + node.data.inputs.len().max(node.data.outputs.len()).max(1) as f32 * 22.0 + 4.0
+    } else {
+        28.0 + (node.data.inputs.len() + node.data.outputs.len()).max(1) as f32 * PORT_SPACING + 5.0
+    }
+}
+
+fn preview_height(node: &ProjectNode) -> f32 {
+    match node.node_type {
+        NodeType::Renderer => 112.0,
+        NodeType::Shader | NodeType::ColorCorrector => 64.0,
+        NodeType::Input if matches!(node.data.input_mode, Some(InputMode::Image | InputMode::Framebuffer | InputMode::Video)) => 100.0,
+        NodeType::Inference if node.data.outputs.iter().any(|port| port.data_type == DataType::Sampler2d) => 64.0,
+        _ => 0.0,
+    }
+}
+
+fn node_height(node: &ProjectNode) -> f32 {
+    let expanded = node.data.extra.get("expanded").and_then(serde_json::Value::as_bool).unwrap_or(true);
+    port_body_height(node) + if expanded && preview_height(node) > 0.0 { preview_height(node) + 22.0 } else { 0.0 }
+}
+
+fn node_title(node: &ProjectNode) -> String {
+    match node.node_type {
+        NodeType::Shader | NodeType::Inference => node.data.template_name.as_deref().unwrap_or(&node.data.label).to_uppercase(),
+        NodeType::ColorCorrector => "COLOR CORRECTOR".into(),
+        NodeType::Input => match node.data.input_mode {
+            Some(InputMode::Image) => "IMAGE".into(), Some(InputMode::Video) => "VIDEO".into(),
+            Some(InputMode::Framebuffer) => "FRAMEBUFFER".into(), Some(InputMode::System) => node.data.system_source.map(|source| format!("{source:?}").to_uppercase()).unwrap_or_else(|| "SYSTEM".into()),
+            _ => node.data.input_data_type.map(|kind| format!("{kind:?}").to_uppercase()).unwrap_or_else(|| "SOURCE".into()),
+        },
+        NodeType::Constant => "COLOR".into(), NodeType::Math => "MATH".into(), NodeType::Renderer => "RENDERER".into(),
+    }
+}
+
+fn node_status(node: &ProjectNode, connected: &HashSet<(&str, &str)>) -> &'static str {
+    if node.data.extra.get("parseError").is_some_and(|error| !error.is_null() && error.as_str() != Some("")) { return "error"; }
+    match node.node_type {
+        NodeType::Input if matches!(node.data.input_mode, Some(InputMode::Image | InputMode::Video | InputMode::Framebuffer)) => {
+            if node.data.image_data_url.is_some() || node.data.raw_data_url.is_some() || node.data.video_file_path.is_some() || node.data.video_device_id.is_some() { "ready" } else { "not-ready" }
+        }
+        NodeType::Inference => "not-ready",
+        NodeType::ColorCorrector if node.data.color_corrector.as_ref().is_some_and(|config| !config.enabled) => "bypassed",
+        _ if node.data.inputs.iter().any(|port| !connected.contains(&(node.id.as_str(), port.id.as_str()))) => "not-ready",
+        _ => "ready",
+    }
+}
+
+fn project_port(
+    port: &Port,
+    index: usize,
+    output: bool,
+    node: &ProjectNode,
+    connected: bool,
+) -> GraphPort {
+    let data_type = match port.data_type {
+        DataType::Float => "float",
+        DataType::Int => "int",
+        DataType::Uint => "uint",
+        DataType::Bool => "bool",
+        DataType::Vec2 => "vec2",
+        DataType::Vec3 => "vec3",
+        DataType::Vec4 => "vec4",
+        DataType::Ivec2 => "ivec2",
+        DataType::Ivec3 => "ivec3",
+        DataType::Ivec4 => "ivec4",
+        DataType::Uvec2 => "uvec2",
+        DataType::Uvec3 => "uvec3",
+        DataType::Uvec4 => "uvec4",
+        DataType::Bvec2 => "bvec2",
+        DataType::Bvec3 => "bvec3",
+        DataType::Bvec4 => "bvec4",
+        DataType::Mat2 => "mat2",
+        DataType::Mat3 => "mat3",
+        DataType::Mat4 => "mat4",
+        DataType::Sampler2d => "sampler2D",
+        DataType::SamplerCube => "samplerCube",
+        DataType::Roi => "roi",
+        DataType::Mesh => "mesh",
+        DataType::Json => "json",
+        DataType::Auto => "auto",
+    };
+    GraphPort {
+        port_id: port.id.as_str().into(),
+        label: port.label.as_str().into(),
+        data_type: data_type.into(),
+        connected,
+        y: port_y(index, node, output),
+        output,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use open_quartz::{
+        Environment, GraphCommand, NodeFactoryRequest, NodeId, OpenQuartz, PortId, PortKey,
+        Position,
+    };
+
+    #[test]
+    fn drag_port_hit_testing_uses_world_geometry_and_frontmost_node() {
+        let make = |id:&str,x:f32,y:f32| GraphNode {
+            node_id:id.into(), x, y, width:200.0, height:150.0,
+            ports:ModelRc::new(VecModel::from(vec![GraphPort{port_id:"input".into(),y:41.0,..Default::default()},GraphPort{port_id:"output".into(),y:67.0,output:true,..Default::default()}])),
+            ..Default::default()
+        };
+        let nodes=VecModel::from(vec![make("back",-300.0,-100.0),make("front",-250.0,-50.0)]);
+        assert_eq!(port_at(&nodes,-303.0,-59.0,6.0),Some(("back".into(),"input".into(),false)));
+        assert_eq!(port_at(&nodes,-200.0,-9.0,0.0),Some(("front".into(),"input".into(),false)));
+        assert_eq!(port_at(&nodes,-200.0,17.0,0.0),Some(("front".into(),"output".into(),true)));
+        assert_eq!(port_at(&nodes,-200.0,17.0,40.0),Some(("front".into(),"output".into(),true)));
+        assert_eq!(port_at(&nodes,-200.0,-49.0,6.0),None);
+        assert_eq!(port_at(&nodes,500.0,500.0,6.0),None);
+        assert_eq!(port_at(&nodes,f32::NAN,0.0,6.0),None);
+    }
+    use slint::Model;
+
+    #[test]
+    fn fit_bounds_ignore_world_origin_and_include_backwards_bezier_hull() {
+        let sdk = OpenQuartz::new(Environment::headless());
+        let mut project = sdk.create_project("Backwards connection");
+        let mut nodes = Vec::new();
+        for x in [400.0, 0.0] {
+            let (node, _) = project
+                .create_graph_node(
+                    NodeFactoryRequest::Math {
+                        position: Some(Position { x, y: 0.0 }),
+                        op: "add".into(),
+                    },
+                    project.graph_revision(),
+                )
+                .unwrap();
+            nodes.push(node);
+        }
+        project
+            .apply_graph_command(
+                GraphCommand::Connect {
+                    source: PortKey::new(
+                        NodeId::new(&nodes[0].id),
+                        PortId::new(&nodes[0].data.outputs[0].id),
+                    ),
+                    target: PortKey::new(
+                        NodeId::new(&nodes[1].id),
+                        PortId::new(&nodes[1].data.inputs[1].id),
+                    ),
+                },
+                project.graph_revision(),
+            )
+            .unwrap();
+        let original = project.graph_snapshot();
+        let baseline = GraphViewModel::from_project(&project, &BTreeSet::new());
+        for (dx, dy) in [(12000.0, 8000.0), (-12000.0, -8000.0)] {
+            let mut graph = original.clone();
+            for node in &mut graph.nodes {
+                node.position.x += dx;
+                node.position.y += dy;
+            }
+            project
+                .replace_graph(graph, project.graph_revision())
+                .unwrap();
+            let projection = GraphViewModel::from_project(&project, &BTreeSet::new());
+            assert_eq!(projection.content_width, baseline.content_width);
+            assert_eq!(projection.content_height, baseline.content_height);
+            for index in 0..projection.nodes.row_count() {
+                let node = projection.nodes.row_data(index).unwrap();
+                let before = baseline.nodes.row_data(index).unwrap();
+                assert_eq!(node.x + projection.origin_x, before.x + baseline.origin_x);
+                assert_eq!(node.y + projection.origin_y, before.y + baseline.origin_y);
+                assert!(node.y + projection.origin_y + node.height < projection.content_height);
+            }
+            let edge = projection.edges.row_data(0).unwrap();
+            assert!(edge.target_x - 48.0 + projection.origin_x >= CONTENT_PADDING);
+            assert!(
+                edge.source_x + 48.0 + projection.origin_x
+                    <= projection.content_width - CONTENT_PADDING
+            );
+        }
+    }
+}

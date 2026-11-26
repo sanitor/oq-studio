@@ -1,0 +1,56 @@
+name: Studio CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          'LIBCLANG_PATH=C:\Program Files\LLVM\bin' >> $env:GITHUB_ENV
+      - run: npm ci
+      - run: npm run test:video-editor:portable
+  hardware:
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [Windows, macOS]
+    runs-on: [self-hosted, "${{ matrix.os }}", openquartz-video-gpu]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          'LIBCLANG_PATH=C:\Program Files\LLVM\bin' >> $env:GITHUB_ENV
+      - run: npm ci
+      - run: npm run test:video-editor
+      - run: npm run test:video-editor:ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studio-ui-${{ matrix.os }}
+          path: test-results/

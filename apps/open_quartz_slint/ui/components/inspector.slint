@@ -1,0 +1,510 @@
+import { CheckBox, ScrollView } from "std-widgets.slint";
+import { CodeEditor } from "code_editor.slint";
+import { Button, ComboBox, LineEdit, SpinBox } from "compact_widgets.slint";
+import { Theme } from "../theme.slint";
+import { CorrectorEditor, CorrectorField, CorrectorStage } from "corrector_editor.slint";
+
+export struct InspectorPort {
+    label: string,
+    data-type: string,
+    output: bool,
+}
+
+export struct InspectorUniform {
+    name: string,
+    data-type: string,
+    value: string,
+    connected: bool,
+    valid: bool,
+    error: string,
+}
+
+export struct InspectorFormField {
+    key: string,
+    label: string,
+    value: string,
+    kind: string,
+    options: [string],
+    choice: int,
+    checked: bool,
+}
+
+export struct InspectorFormGroup {
+    key: string,
+    title: string,
+    hint: string,
+    fields: [InspectorFormField],
+    dirty: bool,
+    error: string,
+}
+
+export struct InspectorInferenceRow {
+    label: string,
+    value: string,
+}
+
+component InspectorSection inherits Rectangle {
+    in property <string> title;
+    private property <bool> expanded: true;
+    vertical-stretch: 0;
+    background: Theme.panel;
+    VerticalLayout {
+        spacing: 0px;
+        Rectangle {
+            height: 1px;
+            background: Theme.border;
+        }
+        Rectangle {
+            height: 30px;
+            background: section-touch.has-hover ? Theme.card : Theme.panel;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 6px;
+                Text {
+                    text: root.expanded ? "▾" : "▸";
+                    color: Theme.secondary;
+                    font-size: 16px;
+                    width: 10px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.title;
+                    color: Theme.secondary;
+                    font-size: 11px;
+                    font-weight: 500;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+            section-touch := TouchArea {
+                accessible-role: button;
+                accessible-label: (root.expanded ? "Collapse " : "Expand ") + root.title;
+                accessible-action-default => { root.expanded = !root.expanded; }
+                mouse-cursor: pointer;
+                clicked => { root.expanded = !root.expanded; }
+            }
+        }
+        Rectangle {
+            height: root.expanded ? content-layout.preferred-height : 0px;
+            vertical-stretch: 0;
+            clip: true;
+            visible: root.expanded;
+            content-layout := VerticalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                padding-top: 6px;
+                padding-bottom: 12px;
+                spacing: 6px;
+                @children
+            }
+        }
+    }
+}
+
+export component Inspector inherits Rectangle {
+    in property <string> node-id;
+    in property <bool> has-selection;
+    in property <string> node-type;
+    in property <string> selection-message;
+    in property <bool> project-busy;
+    in property <bool> is-shader;
+    in property <bool> is-corrector;
+    in property <string> corrector-target;
+    in property <[CorrectorField]> corrector-fields;
+    in property <[CorrectorStage]> corrector-stages;
+    in property <bool> corrector-enabled;
+    in property <string> corrector-error;
+    in property <string> corrector-domain;
+    callback corrector-event(string, string, string, string);
+    in property <bool> supports-output-size;
+    in property <bool> label-dirty;
+    in property <bool> shader-dirty;
+    in property <bool> output-size-dirty;
+    in property <bool> uniform-dirty;
+    in property <bool> inspector-dirty;
+    in property <string> validation-message;
+    in property <bool> uniforms-valid: true;
+    in property <[InspectorPort]> ports;
+    in property <[InspectorUniform]> uniforms;
+    in property <[InspectorFormGroup]> forms;
+    in property <[InspectorInferenceRow]> inference-config;
+    in property <[InspectorInferenceRow]> inference-saved;
+    in property <string> inference-status;
+    in property <[InspectorInferenceRow]> inference-live;
+    in property <bool> inference-available;
+    in property <bool> inference-loading;
+    in property <bool> inference-attached;
+    in-out property <string> inference-path;
+    in property <[string]> inference-backend-options;
+    in property <int> inference-backend-index: -1;
+    in property <string> inference-policy-summary;
+    in property <bool> inference-policy-valid;
+    in property <string> inference-metrics-summary;
+    in property <bool> inference-custom;
+    in property <[string]> inference-task-options;
+    in property <int> inference-task-index: -1;
+    callback inference-task-changed(int);
+    callback inference-backend-changed(int);
+    callback load-inference(string);
+    in property <bool> image-input;
+    in property <string> image-name;
+    in property <string> image-size;
+    in property <bool> framebuffer-input;
+    in property <string> framebuffer-name;
+    callback choose-image();
+    callback choose-framebuffer();
+    in property <bool> video-input;
+    in property <[string]> camera-options;
+    in property <int> camera-index: -1;
+    in property <bool> camera-loading;
+    callback choose-video();
+    callback refresh-cameras();
+    callback select-camera(int);
+    callback unload-inference();
+    in-out property <string> node-label;
+    in-out property <string> shader-code;
+    in property <bool> shader-read-only: false;
+    in property <bool> label-read-only: false;
+    in property <bool> can-delete: true;
+    in-out property <bool> auto-size;
+    in-out property <int> output-width;
+    in-out property <int> output-height;
+    callback label-draft-changed(string);
+    callback shader-draft-changed(string);
+    callback output-size-draft-changed(int, int, bool);
+    callback uniform-draft-changed(string, string);
+    callback apply-label();
+    callback apply-shader();
+    callback apply-output-size();
+    callback apply-uniforms();
+    callback discard-drafts();
+    callback form-draft-changed(string, string);
+    callback apply-form(string);
+    callback delete-node();
+
+    background: Theme.panel;
+    min-width: 240px;
+    preferred-width: 320px;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+        if root.has-selection: Rectangle {
+            height: 36px;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 8px;
+                Text {
+                    text: root.node-type;
+                    color: Theme.secondary;
+                    font-size: 10px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    overflow: elide;
+                    horizontal-stretch: 0;
+                }
+                node-label-editor := LineEdit {
+                    text <=> root.node-label;
+                    accessible-label: "Node label";
+                    horizontal-stretch: 1;
+                    enabled: !root.project-busy && !root.label-read-only;
+                    edited => { root.label-draft-changed(self.text); }
+                    accepted => { root.label-draft-changed(self.text); root.apply-label(); }
+                }
+                if root.label-dirty && !root.label-read-only: Button { text: "Apply"; accessible-label: "Apply node label"; enabled: !root.project-busy; clicked => { root.apply-label(); } }
+                if root.can-delete: Rectangle {
+                    width: 20px; height: 22px;
+                    Path { x: 3px; y: 4px; width: 14px; height: 14px; viewbox-width: 16; viewbox-height: 16; stroke: hit.has-hover ? #ff3b30 : #aeaeb2; stroke-width: 1.3px; commands: "M3 5V14H13V5 M1 5H15 M6 2H10 M6 7.5V11.5 M10 7.5V11.5"; }
+                    hit := TouchArea { enabled: !root.project-busy && !root.inspector-dirty; accessible-role: button; accessible-label: "Delete node"; clicked => { root.delete-node(); } accessible-action-default => { root.delete-node(); } }
+                }
+            }
+        }
+        if root.inspector-dirty: VerticalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 6px;
+            padding-bottom: 8px;
+            spacing: 4px;
+            Text { text: "Unapplied changes · apply or discard to continue"; color: Theme.accent; wrap: word-wrap; font-size: 11px; }
+            Button {
+                text: "Discard changes";
+                enabled: !root.project-busy;
+                clicked => { root.discard-drafts(); }
+            }
+        }
+        if !root.has-selection: Rectangle {
+            vertical-stretch: 1;
+            Text {
+                x: 24px;
+                width: parent.width - 48px;
+                height: parent.height;
+                text: root.selection-message == "" ? "Select a node to inspect its properties." : root.selection-message;
+                color: Theme.secondary;
+                font-size: 12px;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        if root.has-selection: properties-scroll := ScrollView {
+            content-width: self.visible-width;
+            horizontal-scrollbar-policy: always-off;
+            VerticalLayout {
+                alignment: start;
+                spacing: 0px;
+
+                if root.is-corrector: CorrectorEditor {
+                    target: root.corrector-target; fields: root.corrector-fields; stages: root.corrector-stages;
+                    active: root.corrector-enabled; busy: root.project-busy;
+                    error: root.corrector-error; domain: root.corrector-domain;
+                    edit(t,a,k,v) => { root.corrector-event(t,a,k,v); }
+                }
+
+                if root.image-input: InspectorSection {
+                    title: "IMAGE";
+                    Text {
+                        text: root.image-name == "" ? "No image loaded" : root.image-name;
+                        color: Theme.foreground;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                    if root.image-size != "": Text { text: root.image-size; color: Theme.secondary; font-size: 11px; }
+                    Button {
+                        text: root.image-name == "" ? "Choose image…" : "Replace image…";
+                        enabled: !root.project-busy && !root.inspector-dirty;
+                        clicked => { root.choose-image(); }
+                    }
+                }
+                if root.framebuffer-input: InspectorSection {
+                    title: "FRAMEBUFFER";
+                    Text { text: root.framebuffer-name == "" ? "No raw file loaded" : root.framebuffer-name; color: Theme.foreground; font-size: 12px; wrap: word-wrap; }
+                    Button {
+                        text: root.framebuffer-name == "" ? "Choose raw file…" : "Replace raw file…";
+                        enabled: !root.project-busy && !root.inspector-dirty;
+                        clicked => { root.choose-framebuffer(); }
+                    }
+                }
+                if root.video-input: InspectorSection {
+                    title: "VIDEO / CAMERA";
+                    Button {
+                        text: "Choose video file…";
+                        enabled: !root.project-busy && !root.inspector-dirty;
+                        clicked => { root.choose-video(); }
+                    }
+                    Button {
+                        text: root.camera-loading ? "Finding cameras…" : "Refresh cameras";
+                        enabled: !root.project-busy && !root.camera-loading;
+                        clicked => { root.refresh-cameras(); }
+                    }
+                    if root.camera-options.length > 0: ComboBox {
+                        model: root.camera-options;
+                        current-index: root.camera-index;
+                        enabled: !root.project-busy && !root.camera-loading;
+                        min-width: 0px;
+                        preferred-width: 160px;
+                        selected => { root.select-camera(self.current-index); }
+                    }
+                    Text { text: "Apply the Video draft to open the selected camera."; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                }
+
+                if root.is-shader: InspectorSection {
+                    title: "SHADER EDITOR";
+                    CodeEditor {
+                        text <=> root.shader-code;
+                        language: "wgsl";
+                        dark: Theme.dark;
+                        label: "Shader source";
+                        read-only: root.shader-read-only;
+                        enabled: !root.project-busy;
+                        preferred-height: 220px;
+                        max-height: 320px;
+                        edited => { root.shader-draft-changed(self.text); }
+                    }
+                }
+                // Validation remains visible even with the editor collapsed.
+                if root.is-shader && root.validation-message != "": VerticalLayout {
+                    padding: 12px;
+                    Text { text: "Shader parse error: " + root.validation-message; color: #ff3b30; font-size: 11px; wrap: word-wrap; }
+                }
+                for group in root.forms: InspectorSection {
+                    title: group.title;
+                    if group.hint != "": Text { text: group.hint; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    for field in group.fields: HorizontalLayout {
+                        spacing: 6px;
+                        if field.kind != "toggle": Text { text: field.label; width: 52px; color: Theme.secondary; font-size: 11px; wrap: word-wrap; vertical-alignment: center; }
+                        if field.kind == "choice": ComboBox {
+                            model: field.options;
+                            current-index <=> field.choice;
+                            enabled: !root.project-busy;
+                            min-width: 0px;
+                            preferred-width: 160px;
+                            selected => { root.form-draft-changed(field.key, "" + self.current-index); }
+                        }
+                        if field.kind == "text": LineEdit {
+                            text <=> field.value;
+                            enabled: !root.project-busy;
+                            edited => { root.form-draft-changed(field.key, self.text); }
+                        }
+                        if field.kind == "toggle": CheckBox {
+                            text: field.label;
+                            checked <=> field.checked;
+                            enabled: !root.project-busy;
+                            toggled => { root.form-draft-changed(field.key, self.checked ? "true" : "false"); }
+                        }
+                    }
+                    if group.error != "": Text { text: group.error; color: #ff3b30; font-size: 11px; wrap: word-wrap; }
+                    if group.dirty: Button {
+                        text: "Apply " + group.key;
+                        enabled: group.dirty && group.error == "" && !root.project-busy;
+                        clicked => { root.apply-form(group.key); }
+                    }
+                }
+
+
+                if root.supports-output-size: InspectorSection {
+                    title: "OUTPUT SIZE";
+                    CheckBox {
+                        text: "Auto size";
+                        checked <=> root.auto-size;
+                        enabled: !root.project-busy;
+                        toggled => { root.output-size-draft-changed(root.output-width, root.output-height, root.auto-size); }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: "Width"; color: Theme.secondary; font-size: 11px; vertical-alignment: center; }
+                        SpinBox {
+                            minimum: 1;
+                            maximum: 8192;
+                            value <=> root.output-width;
+                            enabled: !root.project-busy && !root.auto-size;
+                            edited => { root.output-size-draft-changed(root.output-width, root.output-height, root.auto-size); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: "Height"; color: Theme.secondary; font-size: 11px; vertical-alignment: center; }
+                        SpinBox {
+                            minimum: 1;
+                            maximum: 8192;
+                            value <=> root.output-height;
+                            enabled: !root.project-busy && !root.auto-size;
+                            edited => { root.output-size-draft-changed(root.output-width, root.output-height, root.auto-size); }
+                        }
+                    }
+                    if root.output-size-dirty: Button {
+                        text: "Apply output size";
+                        enabled: root.output-size-dirty && !root.project-busy;
+                        clicked => { root.apply-output-size(); }
+                    }
+                }
+
+                if root.is-shader && root.uniforms.length > 0: InspectorSection {
+                    title: "UNIFORMS";
+                    Text { text: "Vectors: comma-separated. Matrices: column-major."; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    for uniform in root.uniforms: VerticalLayout {
+                        spacing: 4px;
+                        HorizontalLayout {
+                            spacing: 6px;
+                            Text { text: uniform.name; color: Theme.foreground; font-size: 11px; overflow: elide; }
+                            Text { text: uniform.data-type; color: Theme.secondary; font-size: 10px; horizontal-alignment: right; }
+                        }
+                        uniform-editor := LineEdit {
+                            accessible-label: "Uniform " + uniform.name;
+                            text: uniform.value;
+                            enabled: !uniform.connected && !root.project-busy;
+                            edited => { root.uniform-draft-changed(uniform.name, self.text); }
+                            accepted => { root.uniform-draft-changed(uniform.name, self.text); root.apply-uniforms(); }
+                        }
+                        if uniform.connected: Text { text: "Connected · upstream value"; color: Theme.accent; font-size: 11px; wrap: word-wrap; }
+                        if !uniform.connected && !uniform.valid: Text { text: uniform.error; color: #ff3b30; font-size: 11px; wrap: word-wrap; }
+                    }
+                    if root.uniform-dirty: Button {
+                        text: "Apply uniforms";
+                        enabled: root.uniform-dirty && root.uniforms-valid && !root.project-busy;
+                        clicked => { root.apply-uniforms(); }
+                    }
+                }
+
+                if root.ports.length > 0: InspectorSection {
+                    title: "PORTS";
+                    for port in root.ports: HorizontalLayout {
+                        spacing: 6px;
+                        Text { text: port.output ? "OUT" : "IN"; color: Theme.secondary; font-size: 10px; width: 28px; }
+                        Text { text: port.label; color: Theme.foreground; font-size: 11px; wrap: word-wrap; }
+                        Text { text: port.data-type; color: Theme.secondary; font-size: 10px; horizontal-alignment: right; wrap: word-wrap; }
+                    }
+                }
+
+                if root.inference-config.length > 0: InspectorSection {
+                    title: "EXECUTION";
+                    Text { text: root.inference-status; accessible-label: "Inference session status"; accessible-description: root.inference-status; color: Theme.accent; font-size: 11px; wrap: word-wrap; }
+                    Text { text: root.inference-policy-summary; color: root.inference-policy-valid ? Theme.foreground : #b42318; font-size: 11px; wrap: word-wrap; }
+                    Text { text: root.inference-metrics-summary; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    Text { text: "Backend"; color: Theme.secondary; font-size: 11px; }
+                    ComboBox {
+                        model: root.inference-backend-options;
+                        current-index: root.inference-backend-index;
+                        enabled: !root.project-busy && !root.inspector-dirty && !root.inference-loading;
+                        selected => { root.inference-backend-changed(self.current-index); }
+                    }
+                    Text { text: "Resident GPU buffers only · no host pixel/tensor transfers · no fallback"; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    Text { text: "Local model path (optional)"; color: Theme.secondary; font-size: 11px; }
+                    LineEdit { text <=> root.inference-path; accessible-label: "Local model path"; enabled: !root.project-busy && !root.inference-loading; placeholder-text: "Saved path or catalog model"; }
+                    Text { text: "Blank uses the saved path or catalog cache/download. This path and live session are not saved."; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        Button {
+                            text: "Load model";
+                            enabled: root.inference-available && root.inference-policy-valid && !root.project-busy && !root.inspector-dirty && !root.inference-loading;
+                            clicked => { root.load-inference(root.inference-path); }
+                        }
+                        Button {
+                            text: root.inference-loading ? "Cancel load" : "Unload model";
+                            enabled: root.inference-available && !root.project-busy && !root.inspector-dirty && (root.inference-loading || root.inference-attached);
+                            clicked => { root.unload-inference(); }
+                        }
+                    }
+                    for field in root.inference-live: VerticalLayout {
+                        spacing: 2px;
+                        Text { text: field.label; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                        Text { text: field.value; color: Theme.foreground; font-size: 12px; wrap: word-wrap; min-width: 0px; }
+                    }
+                }
+                if root.inference-config.length > 0: InspectorSection {
+                    title: "MODEL / TASK";
+                    Text { text: root.inference-custom ? "Choose the task expected by this model. Task selection is saved with the project." : "Saved model and task configuration"; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    if root.inference-custom: ComboBox {
+                        model: root.inference-task-options;
+                        current-index: root.inference-task-index;
+                        enabled: !root.project-busy && !root.inspector-dirty && !root.inference-loading;
+                        selected => { root.inference-task-changed(self.current-index); }
+                    }
+                    for field in root.inference-config: VerticalLayout {
+                        spacing: 2px;
+                        Text { text: field.label; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                        Text { text: field.value; color: Theme.foreground; font-size: 12px; wrap: word-wrap; min-width: 0px; }
+                    }
+                }
+                if root.inference-config.length > 0 && root.inference-saved.length > 0: InspectorSection {
+                    title: "SAVED METADATA";
+                    Text { text: "Saved metadata · not live session state"; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                    for field in root.inference-saved: VerticalLayout {
+                        spacing: 2px;
+                        Text { text: field.label; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
+                        Text { text: field.value; color: Theme.foreground; font-size: 12px; wrap: word-wrap; min-width: 0px; }
+                    }
+                }
+            }
+        }
+        if root.has-selection && root.is-shader && !root.shader-read-only: HorizontalLayout {
+            padding: 8px;
+            Button {
+                text: "Apply shader";
+                enabled: root.shader-dirty && !root.project-busy;
+                clicked => { root.apply-shader(); }
+            }
+        }
+    }
+}

@@ -16,8 +16,8 @@ ui-automation = ["slint/mcp"]
 base64 = "0.22"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png"] }
 cosmic-text = { version = "=0.18.2", default-features = false, features = ["std", "swash"] }
-open_quartz = { path = "../../crates/open_quartz", features = ["native-runtime", "native-video", "model-cache"] }
-slint_code_editor = { path = "../../crates/slint_code_editor" }
+open_quartz = { git = "https://github.com/sanitor/open_quartz.git", rev = "24ee19b5a831998e1f207c11693da3fe8136409a", features = ["native-runtime", "native-video", "model-cache"] }
+slint_code_editor = { git = "https://github.com/sanitor/slint-code-editor.git", rev = "5725592db93abf81da00a7b7dac111ffa7ccc14a" }
 slint = { version = "=1.18.1", features = ["renderer-femtovg-wgpu", "unstable-wgpu-30", "unstable-winit-030"] }
 wgpu = { version = "30", default-features = false, features = ["wgsl", "dx12", "metal", "vulkan"] }
 naga = { version = "30", features = ["wgsl-in"] }
@@ -30,13 +30,13 @@ tempfile = "3"
 url = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-oq-media = { path = "../../crates/oq-media", features = ["videotoolbox"] }
+oq-media = { git = "https://github.com/sanitor/open_quartz.git", rev = "24ee19b5a831998e1f207c11693da3fe8136409a", features = ["videotoolbox"] }
 
 [target.'cfg(windows)'.dependencies]
 i-slint-backend-winit = { version = "=1.18.1", default-features = false }
 i-slint-core = { version = "=1.18.1", default-features = false }
-open_quartz = { path = "../../crates/open_quartz", features = ["native-video-precise-d3d12", "native-dml"] }
-oq-media = { path = "../../crates/oq-media", features = ["audio"] }
+open_quartz = { git = "https://github.com/sanitor/open_quartz.git", rev = "24ee19b5a831998e1f207c11693da3fe8136409a", features = ["native-video-precise-d3d12", "native-dml"] }
+oq-media = { git = "https://github.com/sanitor/open_quartz.git", rev = "24ee19b5a831998e1f207c11693da3fe8136409a", features = ["audio"] }
 windows = { version = "0.62", features = ["Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Gdi", "Win32_Media_Audio", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 
 [build-dependencies]
@@ -47,3 +47,6 @@ opt-level = 2
 
 [profile.dev.package.wgpu-core]
 debug-assertions = false
+
+[patch."https://github.com/sanitor/open_quartz.git"]
+oq-media = { git = "https://github.com/sanitor/oq-media.git", rev = "df56eee2dde13576dce23932eef9cc34b8bdaaba" }

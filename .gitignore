@@ -1,0 +1,6 @@
+/node_modules/
+/target/
+/apps/*/target/
+/apps/open_quartz_slint/runtime/
+/dist-desktop/
+/test-results/
