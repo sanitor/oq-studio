@@ -313,6 +313,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(windows, ignore = "requires a native Windows graphics adapter")]
     fn gpu_candidate_preflight_reports_errors_without_replacing_the_live_preview() {
         let (mut bridge, _configuration, _) = PreviewBridge::new().unwrap();
         let mut request = PreviewRequest { managed_output: false, managed_view: false, sequence_grade: Default::default(), layers: Vec::new(),

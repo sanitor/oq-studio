@@ -39,6 +39,10 @@ if (windows) {
 const manifest=join(root,'apps/open_quartz_video_editor/Cargo.toml');
 if(mode==='dev')await run('cargo',['run','--locked','--manifest-path',manifest,'--',...args],env);
 if (mode === 'test' || mode === 'test-portable') {
+  if (windows) {
+    const { default: installer } = await import('@ffmpeg-installer/ffmpeg');
+    env.OPEN_QUARTZ_TEST_FFMPEG_PATH = installer.path;
+  }
   const hardware = mode === 'test' ? ['--include-ignored'] : [];
   await run('cargo', ['test', '--locked', '--manifest-path', manifest, '--', '--test-threads=1', ...hardware], env);
 

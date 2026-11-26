@@ -215,7 +215,8 @@ mod tests {
         let path = directory.path().join("audio-video.mp4");
         let video = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../tests/fixtures/white_h264_high_64x64.mp4");
-        let ffmpeg = open_quartz::media::native::find_ffmpeg().unwrap();
+        let ffmpeg = std::env::var_os("OPEN_QUARTZ_TEST_FFMPEG_PATH")
+            .map(PathBuf::from).unwrap_or_else(|| open_quartz::media::native::find_ffmpeg().unwrap());
         let output = std::process::Command::new(ffmpeg)
             .env_remove("DYLD_LIBRARY_PATH")
             .env_remove("DYLD_FALLBACK_LIBRARY_PATH")
