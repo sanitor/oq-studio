@@ -1,6 +1,7 @@
 # OpenQuartz Studio
 
-Native video editor for Windows x64 and macOS (Apple Silicon and Intel).
+Native video editor for Windows x64 and macOS (Apple Silicon).
+Intel macOS is outside the current CI and release matrix.
 See [Studio documentation](apps/open_quartz_video_editor/README.md).
 
 Run npm ci, then npm run dev:video-editor. Use npm run test:video-editor:portable

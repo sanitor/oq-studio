@@ -209,6 +209,7 @@ pub fn configure_runtime() -> Result<(), String> {
 mod tests {
     use super::*;
     #[test]
+    #[cfg_attr(windows, ignore = "requires D3D12VA; run with test:video-editor on a GPU host")]
     fn probe_records_unused_audio_and_rejects_corrupt_media() {
         configure_runtime().unwrap();
         let directory = tempfile::tempdir().unwrap();
