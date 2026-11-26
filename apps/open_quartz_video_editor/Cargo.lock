@@ -3769,7 +3769,7 @@ dependencies = [
 [[package]]
 name = "open_quartz"
 version = "0.20.0"
-source = "git+https://github.com/sanitor/open_quartz.git?rev=24ee19b5a831998e1f207c11693da3fe8136409a#24ee19b5a831998e1f207c11693da3fe8136409a"
+source = "git+https://github.com/sanitor/open_quartz.git?rev=39f918ef9919cbef55450a4d88153a90807b1bf8#39f918ef9919cbef55450a4d88153a90807b1bf8"
 dependencies = [
  "ffmpeg-next",
  "futures-channel",
@@ -3819,7 +3819,7 @@ dependencies = [
 [[package]]
 name = "oq-inference"
 version = "0.1.0"
-source = "git+https://github.com/sanitor/open_quartz.git?rev=24ee19b5a831998e1f207c11693da3fe8136409a#24ee19b5a831998e1f207c11693da3fe8136409a"
+source = "git+https://github.com/sanitor/open_quartz.git?rev=39f918ef9919cbef55450a4d88153a90807b1bf8#39f918ef9919cbef55450a4d88153a90807b1bf8"
 dependencies = [
  "cc",
  "objc2 0.6.5",
