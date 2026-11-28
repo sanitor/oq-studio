@@ -133,7 +133,7 @@ export component TopBar inherits Rectangle {
             }
             Rectangle { width: 16px; height: 40px; Image { y: 12px; source: @image-url("../../icons/favicon.svg"); width: 16px; height: 16px; } }
             Text { text: root.available-width < 960px ? "OQ" : "OPENQUARTZ"; font-size: 13px; font-weight: 700; color: Theme.foreground; height: 40px; vertical-alignment: center; }
-            if root.available-width >= 1100px: Text { text: "v0.20.0b"; font-size: 11px; color: #aeaeb2; height: 40px; vertical-alignment: center; }
+            if root.available-width >= 1100px: Text { text: "v0.21.0b"; font-size: 11px; color: #aeaeb2; height: 40px; vertical-alignment: center; }
             name := Rectangle {
                 width: clamp(name-text.preferred-width + 12px, 52px, root.available-width < 1000px ? 80px : 120px); height: 40px;
                 name-text := Text { visible: !root.editing-name; width: parent.width; height: parent.height; text: root.project-name; font-size: 12px; color: Theme.foreground; font-weight: 500; vertical-alignment: center; overflow: elide; }

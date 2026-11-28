@@ -1,7 +1,7 @@
 {
   "name": "oq-studio",
   "private": true,
-  "version": "0.20.0b",
+  "version": "0.21.0b",
   "type": "module",
   "scripts": {
     "dev:video-editor": "node scripts/video-editor.mjs dev",
