@@ -192,6 +192,16 @@ impl Controller {
         });
     }
 
+    fn can_edit_shader(node: &ProjectNode) -> bool {
+        node.node_type == NodeType::Shader
+            && !ClipPipeline::is_protected(&node.id)
+            && node.data.shader_template_id.is_none()
+            // Older Studio projects stored catalog identity in the factory template name.
+            && !node.data.template_name.as_deref()
+                .and_then(crate::shader_catalog::find)
+                .is_some_and(|preset| preset.shader_template_id.is_some())
+    }
+
     fn selected_pipeline_node(&self) -> Option<ProjectNode> {
         let id=self.pipeline_editor.selected.iter().next()?;
         self.document.clip(self.pipeline_editor.clip.as_deref()?)?.pipeline.graph().nodes.iter().find(|n| &n.id==id).cloned()
@@ -298,7 +308,12 @@ impl Controller {
             }
             PipelineCommand::Action(action)=>self.pipeline_action(&action),
             PipelineCommand::Label(value)=>{if let Some(d)=self.pipeline_draft(){d.label=value;}self.publish_pipeline_inspector();}
-            PipelineCommand::Shader(value)=>{if let Some(d)=self.pipeline_draft(){d.code=value;}self.publish_pipeline_inspector();}
+            PipelineCommand::Shader(value) => {
+                if self.selected_pipeline_node().as_ref().is_some_and(Self::can_edit_shader) {
+                    if let Some(draft) = self.pipeline_draft() { draft.code = value; }
+                    self.publish_pipeline_inspector();
+                }
+            }
             PipelineCommand::Size(w,h,auto)=>{if let Some(d)=self.pipeline_draft(){d.width=w;d.height=h;d.auto_size=auto;}self.publish_pipeline_inspector();}
             PipelineCommand::Uniform(name,value)=>{if let Some(d)=self.pipeline_draft(){d.uniforms.insert(name,value);}self.publish_pipeline_inspector();}
             PipelineCommand::Form(key,value)=>{if let Some(d)=self.pipeline_draft(){d.forms.change(&key,&value);}self.publish_pipeline_inspector();}
@@ -417,8 +432,8 @@ impl Controller {
     fn apply_pipeline_inspector(&mut self,action:&str){
         let Some(node)=self.selected_pipeline_node()else{return;};
         if ClipPipeline::is_protected(&node.id){self.pipeline_error("Clip source and output are managed by the timeline".into());return;}
-        if action == "apply-shader" && (crate::clip_pipeline::BranchComposite::from_node(&node).is_some() || ClipPipeline::is_lut(&node)) {
-            self.pipeline_error("The generated shader is read-only".into());
+        if action == "apply-shader" && !Self::can_edit_shader(&node) {
+            self.pipeline_error("Only custom shader source can be edited".into());
             return;
         }
         let Some(draft)=self.pipeline_draft()else{return;};
@@ -544,7 +559,11 @@ impl Controller {
         window.set_pipeline_has_selection(node.is_some());
         window.set_pipeline_can_bypass(self.pipeline_editor.selected.len() == 1 && node.as_ref().is_some_and(ClipPipeline::can_bypass));
         window.set_pipeline_node_bypassed(node.as_ref().is_some_and(ClipPipeline::is_bypassed));
-        window.set_pipeline_label_read_only(!editable);window.set_pipeline_shader_read_only(!editable || node.as_ref().is_some_and(|node| crate::clip_pipeline::BranchComposite::from_node(node).is_some() || ClipPipeline::is_lut(node)));window.set_pipeline_can_delete(editable);
+        let can_edit_shader = node.as_ref().is_some_and(Self::can_edit_shader);
+        window.set_pipeline_label_read_only(!editable);
+        window.set_pipeline_shader_read_only(!can_edit_shader);
+        window.set_pipeline_can_delete(editable);
+        if !can_edit_shader { window.set_pipeline_shader_code("".into()); }
         window.set_pipeline_selection_message(if self.pipeline_editor.clip.is_none(){"Select a timeline clip to edit its pipeline"}else{"Select a node to edit its parameters"}.into());
         window.set_pipeline_node_id(node.as_ref().map(|n|n.id.as_str()).unwrap_or_default().into());
         window.set_pipeline_node_type(node.as_ref().map(|n|format!("{:?}",n.node_type)).unwrap_or_default().into());
@@ -559,7 +578,7 @@ impl Controller {
         let corrector_dirty=self.pipeline_editor.corrector.as_ref().is_some_and(|state|state.draft.dirty());
         let Some(draft)=self.pipeline_draft()else{return;};
         if window.get_pipeline_node_label()!=draft.label.as_str(){window.set_pipeline_node_label(draft.label.clone().into());}
-        if window.get_pipeline_shader_code()!=draft.code.as_str(){window.set_pipeline_shader_code(draft.code.clone().into());}
+        if can_edit_shader && window.get_pipeline_shader_code()!=draft.code.as_str(){window.set_pipeline_shader_code(draft.code.clone().into());}
         window.set_pipeline_auto_size(draft.auto_size);window.set_pipeline_output_width(draft.width);window.set_pipeline_output_height(draft.height);
         window.set_pipeline_label_dirty(draft.label!=node.data.label);window.set_pipeline_shader_dirty(draft.code!=node.data.shader_code);
         window.set_pipeline_output_size_dirty(draft.width!=node.data.width.unwrap_or(512) as i32||draft.height!=node.data.height.unwrap_or(512) as i32||draft.auto_size!=node.data.auto_size.unwrap_or(true));

@@ -427,6 +427,9 @@ async function runVideoCases() {
     await selectNode('video');
     const invert = await addEffect('Invert'); invertId = invert.id;
     await waitNodeCount(3); await snapshot('03-invert-red-to-cyan', 'cyan');
+    await selectNode(invertId);
+    assert.equal((await client.byLabel('Shader source', { role: 'TextInput', visible: false })).length, 0);
+    assert.equal((await client.byLabel('Apply shader', { role: 'Button', visible: false })).length, 0);
     const data = await save(); const graph = graphFor(data, 'red.mp4');
     assert(graph.edges.some(edge => edge.source === 'video' && edge.target === invertId));
     assert(graph.edges.some(edge => edge.source === invertId && edge.target === 'output'));

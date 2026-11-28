@@ -308,14 +308,13 @@ export component Inspector inherits Rectangle {
                     Text { text: "Apply the Video draft to open the selected camera."; color: Theme.secondary; font-size: 11px; wrap: word-wrap; }
                 }
 
-                if root.is-shader: InspectorSection {
+                if root.is-shader && !root.shader-read-only: InspectorSection {
                     title: "SHADER EDITOR";
                     CodeEditor {
                         text <=> root.shader-code;
                         language: "wgsl";
                         dark: Theme.dark;
                         label: "Shader source";
-                        read-only: root.shader-read-only;
                         enabled: !root.project-busy;
                         preferred-height: 220px;
                         max-height: 320px;
@@ -323,7 +322,7 @@ export component Inspector inherits Rectangle {
                     }
                 }
                 // Validation remains visible even with the editor collapsed.
-                if root.is-shader && root.validation-message != "": VerticalLayout {
+                if root.is-shader && !root.shader-read-only && root.validation-message != "": VerticalLayout {
                     padding: 12px;
                     Text { text: "Shader parse error: " + root.validation-message; color: #ff3b30; font-size: 11px; wrap: word-wrap; }
                 }
