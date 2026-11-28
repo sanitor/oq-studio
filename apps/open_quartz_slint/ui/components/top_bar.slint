@@ -1,3 +1,4 @@
+import { ActionIcon, ActionSymbol } from "action_button.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { WindowControlButton } from "window_controls.slint";
@@ -7,11 +8,12 @@ export struct FactoryGroup { label: string, section: string, items: [FactoryEntr
 
 component ToolButton inherits Rectangle {
     in property <string> text;
-    in property <string> glyph;
+    in property <ActionSymbol> symbol;
+    in property <bool> dropdown;
     in property <string> icon-path;
     in property <bool> enabled: true;
     callback clicked();
-    width: max(38px, caption.preferred-width + 12px);
+    width: max(38px, caption.preferred-width + (root.dropdown ? 22px : 12px));
     height: 40px;
     background: area.has-hover && root.enabled ? Theme.card : transparent;
     border-radius: 4px;
@@ -26,14 +28,18 @@ component ToolButton inherits Rectangle {
         stroke: !root.enabled ? #aeaeb2 : area.has-hover ? Theme.accent : Theme.foreground;
         stroke-width: 1.2px;
     }
-    if root.icon-path == "": Text {
-        x: 0px; y: 2px; width: parent.width; height: 18px;
-        text: root.glyph; font-size: 15px;
-        color: !root.enabled ? #aeaeb2 : area.has-hover ? Theme.accent : Theme.foreground;
-        horizontal-alignment: center;
+    if root.icon-path == "": ActionIcon {
+        x: (parent.width - self.width) / 2; y: 4px;
+        width: 14px; height: 14px; symbol: root.symbol;
+        stroke: !root.enabled ? #aeaeb2 : area.has-hover ? Theme.accent : Theme.foreground;
+    }
+    if root.dropdown: ActionIcon {
+        x: (parent.width + caption.preferred-width) / 2 - 3px; y: 24px;
+        width: 9px; height: 9px; symbol: ActionSymbol.disclosure-down;
+        stroke: !root.enabled ? #aeaeb2 : Theme.secondary;
     }
     caption := Text {
-        y: 23px; width: parent.width; height: 12px;
+        x: root.dropdown ? -5px : 0px; y: 23px; width: parent.width; height: 12px;
         text: root.text; font-size: 9px; font-weight: 700;
         color: !root.enabled ? #aeaeb2 : area.has-hover ? Theme.accent : Theme.foreground;
         horizontal-alignment: center;
@@ -44,10 +50,16 @@ component MenuItem inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     in property <bool> active;
+    in property <bool> submenu;
     callback clicked();
     height: 28px;
     background: (area.has-hover || root.active) && root.enabled ? Theme.card : transparent;
-    Text { x: 12px; width: parent.width - 24px; height: parent.height; text: root.text; font-size: 10px; font-weight: 600; color: !root.enabled ? #aeaeb2 : (area.has-hover || root.active) ? Theme.accent : Theme.foreground; vertical-alignment: center; overflow: elide; }
+    Text { x: 12px; width: parent.width - (root.submenu ? 34px : 24px); height: parent.height; text: root.text; font-size: 10px; font-weight: 600; color: !root.enabled ? #aeaeb2 : (area.has-hover || root.active) ? Theme.accent : Theme.foreground; vertical-alignment: center; overflow: elide; }
+    if root.submenu: ActionIcon {
+        x: parent.width - 19px; y: (parent.height - self.height) / 2;
+        width: 10px; height: 10px; symbol: ActionSymbol.disclosure-right;
+        stroke: !root.enabled ? #aeaeb2 : Theme.secondary;
+    }
     accessible-role: button; accessible-label: root.text; accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
     area := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
@@ -135,15 +147,15 @@ export component TopBar inherits Rectangle {
             }
             Divider {}
             file-button := ToolButton {
-                text: "FILE ▾"; icon-path: "M2 2.5H6L7.5 4H14L15 5V13L14 14H2L1 13V3.5Z";
+                text: "FILE"; dropdown: true; icon-path: "M2 2.5H6L7.5 4H14L15 5V13L14 14H2L1 13V3.5Z";
                 enabled: !root.busy;
                 clicked => { file-menu.show(); }
             }
             Divider {}
             for section in ["SOURCE", "MATH", "SHADER", "INFERENCE"]: ToolButton {
-                text: section + " ▾";
+                text: section; dropdown: true;
                 icon-path: section == "SOURCE" ? "M7.5 8H14 M7.5 8A3 3 0 1 1 1.5 8A3 3 0 1 1 7.5 8" : section == "SHADER" ? "M3.5 3.5H12.5V12.5H3.5Z M5 1V3.5 M8 1V3.5 M11 1V3.5 M5 12.5V15 M8 12.5V15 M11 12.5V15 M1 5H3.5 M1 8H3.5 M1 11H3.5 M12.5 5H15 M12.5 8H15 M12.5 11H15" : section == "INFERENCE" ? "M14 8A6 6 0 1 1 2 8A6 6 0 1 1 14 8 M5 8L8 5L11 8L8 11Z" : "";
-                glyph: "±"; enabled: !root.busy;
+                symbol: ActionSymbol.math; enabled: !root.busy;
                 clicked => { root.open-node-menu(section, self.x); }
             }
             ToolButton { text: "RENDERER"; icon-path: "M1.5 2.5H14.5V11.5H1.5Z M5 14H11 M8 11.5V14"; enabled: !root.busy && root.renderer-factory-index >= 0; clicked => { root.add-node(root.renderer-factory-index); } }
@@ -151,11 +163,11 @@ export component TopBar inherits Rectangle {
             ToolButton { text: "UNDO"; icon-path: "M6 3L2 7L6 11 M2 7H10C15 7 15 14 9 14"; enabled: !root.busy && root.can-undo; clicked => { root.undo(); } }
             ToolButton { text: "REDO"; icon-path: "M10 3L14 7L10 11 M14 7H6C1 7 1 14 7 14"; enabled: !root.busy && root.can-redo; clicked => { root.redo(); } }
             Divider {}
-            ToolButton { text: "CLEAR"; glyph: "×"; enabled: !root.busy; clicked => { root.project-action("clear"); } }
+            ToolButton { text: "CLEAR"; symbol: ActionSymbol.close; enabled: !root.busy; clicked => { root.project-action("clear"); } }
             Rectangle { horizontal-stretch: 1; }
             Text { text: root.playback-time; accessible-label: "Playback time " + root.playback-time; font-size: 11px; color: Theme.secondary; vertical-alignment: center; min-width: 78px; }
-            ToolButton { text: root.playback-state == "playing" ? "PAUSE" : root.playback-state == "paused" ? "RESUME" : "PLAY"; glyph: root.playback-state == "playing" ? "Ⅱ" : "▶"; enabled: !root.busy && root.native-runtime-available; clicked => { root.playback(root.playback-state == "playing" ? "pause" : "play"); } }
-            if root.playback-state != "stopped": ToolButton { text: "STOP"; glyph: "■"; enabled: !root.busy && root.native-runtime-available; clicked => { root.playback("stop"); } }
+            ToolButton { text: root.playback-state == "playing" ? "PAUSE" : root.playback-state == "paused" ? "RESUME" : "PLAY"; symbol: root.playback-state == "playing" ? ActionSymbol.pause : ActionSymbol.play; enabled: !root.busy && root.native-runtime-available; clicked => { root.playback(root.playback-state == "playing" ? "pause" : "play"); } }
+            if root.playback-state != "stopped": ToolButton { text: "STOP"; symbol: ActionSymbol.stop; enabled: !root.busy && root.native-runtime-available; clicked => { root.playback("stop"); } }
             if !root.controls-on-left: HorizontalLayout {
                 spacing: 0px; padding-left: 4px; alignment: center;
                 if root.mac-style-controls: WindowControlButton { action: "close"; mac-style: true; maximized: root.window-maximized; clicked => { root.close-window(); } }
@@ -211,7 +223,7 @@ export component TopBar inherits Rectangle {
                 for group[index] in root.factory-groups: MenuItem {
                     visible: group.section == root.menu-section;
                     height: group.section == root.menu-section ? 24px : 0px;
-                    text: group.label + "  ›"; active: index == root.group-index;
+                    text: group.label; submenu: true; active: index == root.group-index;
                     clicked => { root.group-index = index; }
                     TouchArea { moved => { root.group-index = index; } clicked => { root.group-index = index; } }
                 }

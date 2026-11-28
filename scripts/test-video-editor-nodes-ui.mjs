@@ -88,8 +88,18 @@ async function fileAction(action, path, submit) {
   await client.click(matches.at(-1));
 }
 async function save(first = false) {
-  if (first) await fileAction('SAVE AS', project, 'Save project'); else await click('SAVE');
-  await waitState('Project saved');
+  if (first) {
+    await fileAction('SAVE AS', project, 'Save project');
+    await waitState('Project saved');
+  } else {
+    const saveButton = await button('SAVE');
+    if (saveButton.accessibleEnabled) {
+      await client.click(saveButton);
+      await waitState('Project saved');
+    } else {
+      assert(!(await state()).includes('Unsaved changes'), 'Save is enabled for a dirty project');
+    }
+  }
   return JSON.parse(await readFile(project, 'utf8')).data;
 }
 async function headers() {
@@ -675,7 +685,8 @@ async function runVideoCases() {
     await click('Remove grade'); assert.equal((await options()).accessibleValue, 'Original');
     await click('Close versions'); await waitColor('red');
     await click('UNDO'); await waitColor('cyan');
-    await click('SAVE'); await waitState('Project saved');
+    await client.waitFor(async () => !(await button('SAVE')).accessibleEnabled,
+      { description: 'Save is disabled after undo returns to the saved project' });
     await close();
   }, { core: true });
   await step('Monitor the source and an intermediate node without changing the saved output', async () => {
@@ -878,7 +889,8 @@ async function runVideoCases() {
     await edit('Corrector Qualifier matte output', '1'); await waitColor('white');
     await click('UNDO'); await waitColor('dim-cyan');
     await click('UNDO');
-    await click('SAVE'); await waitState('Project saved');
+    await client.waitFor(async () => !(await button('SAVE')).accessibleEnabled,
+      { description: 'Save is disabled after undo returns to the saved project' });
     await close(); await launch(project); await waitState('clips 1');
     await click('Nodes workspace'); await selectClip('red.mp4'); await waitColor('dim-cyan');
     await close();
@@ -906,7 +918,8 @@ async function runVideoCases() {
     await click('UNDO');
     await client.click(await combo()); await client.key('\uf700'); await client.key('\n');
     await click('Show still'); await waitColor('red');
-    await click('SAVE'); await waitState('Project saved');
+    await client.waitFor(async () => !(await button('SAVE')).accessibleEnabled,
+      { description: 'Save is disabled after undo returns to the saved project' });
     await close(); await launch(path); await waitState('clips 1');
     await click('Nodes workspace'); await selectClip('red.mp4');
     await click('Show still'); await waitColor('red'); await click('Show live'); await waitColor('cyan');

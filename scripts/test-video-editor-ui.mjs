@@ -2543,7 +2543,8 @@ async function runVideoCases() {
    assert.equal((await clipControl('Mask shape', 'Combobox')).accessibleValue, 'Rectangle');
    await click('UNDO');
    assert.equal((await clipControl('Mask shape', 'Combobox')).accessibleValue, 'Ellipse');
-   await click('SAVE'); await waitState('Project saved');
+   await client.waitFor(async () => !(await buttons('SAVE'))[0].accessibleEnabled,
+     { description: 'Save is disabled after restoring the saved project state' });
    await close();
  }, { core: true });
  await maskTrackingRoundTrip(mediaCommand);
@@ -3066,6 +3067,8 @@ async function runVideoCases() {
 
    await launch(saved); await waitState('clips 1');
    assert.deepEqual(await positions('Title'), [[0, 90]]);
+   assert.equal(Boolean((await buttons('SAVE'))[0].accessibleEnabled), false);
+   assert.equal(Boolean((await buttons('Recover autosave'))[0].accessibleEnabled), false);
    await close();
  }, { core: true });
  await step('Open the previous saved version as a copy and discard a separate autosave', async () => {
@@ -3085,7 +3088,8 @@ async function runVideoCases() {
    await launch(path); await waitState('clips 2');
    await click('Discard autosave'); await waitState('Recovery snapshot discarded');
    assert.deepEqual(await recoveryFiles(), []);
-   assert.equal((await buttons('Recover autosave')).length, 0);
+   assert.equal(Boolean((await buttons('Recover autosave'))[0].accessibleEnabled), false);
+   assert.equal(Boolean((await buttons('Discard autosave'))[0].accessibleEnabled), false);
    assert((await state()).includes('clips 2'));
    await close();
  });
@@ -3153,7 +3157,8 @@ async function runVideoCases() {
    assert.equal((await client.byLabel('Rotate clip', { role: 'Button' })).length, 0);
    await click('Unlock Video 3');
    assert.equal(Boolean((await clipControl('Opacity (%)')).accessibleEnabled), true);
-   await click('SAVE'); await waitState('Project saved');
+   await client.waitFor(async () => !(await buttons('SAVE'))[0].accessibleEnabled,
+     { description: 'Save is disabled after restoring the saved project state' });
    await close();
  }, { core: true });
  await step('Project rename, library search, ruler seek and Inspector timing are observable', async () => {

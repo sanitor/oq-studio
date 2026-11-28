@@ -1,0 +1,286 @@
+import { Theme } from "../theme.slint";
+
+export enum ActionSymbol {
+    none,
+    add,
+    track-add,
+    transform,
+    undo,
+    redo,
+    folder,
+    save,
+    save-as,
+    link,
+    unlink,
+    import-file,
+    export-file,
+    settings,
+    previous,
+    play,
+    pause,
+    next,
+    split,
+    delete,
+    minus,
+    magnet,
+    fit,
+    fit-view,
+    queue,
+    history,
+    restore,
+    close,
+    stop,
+    check,
+    layers,
+    proxy,
+    mic,
+    cube,
+    monitor,
+    node,
+    compare,
+    eye,
+    eye-off,
+    camera,
+    image,
+    match,
+    mark-in,
+    mark-out,
+    sync,
+    title,
+    subtitle,
+    subtitle-import,
+    subtitle-export,
+    insert,
+    overwrite,
+    ripple-delete,
+    slip,
+    slide,
+    keyframe,
+    keyframe-add,
+    keyframe-remove,
+    ease,
+    target,
+    copy,
+    paste,
+    marker-add,
+    marker-remove,
+    audio,
+    file,
+    film,
+    box,
+    code,
+    lock,
+    unlock,
+    up,
+    down,
+    audio-off,
+    solo,
+    disclosure-down,
+    disclosure-up,
+    disclosure-right,
+    grip,
+    maximize,
+    restore-window,
+    math,
+    warning,
+    move,
+    edit,
+    controls,
+    sun,
+    eyedropper,
+    black-level,
+    shadow-level,
+    dark-level,
+    light-level,
+    highlight-level,
+    sparkle,
+    channel,
+    channel-green,
+    channel-blue
+}
+
+export component ActionIcon inherits Path {
+    in property <ActionSymbol> symbol;
+    width: 18px;
+    height: 18px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: transparent;
+    stroke-width: 1.7px;
+    commands:
+        root.symbol == ActionSymbol.add ? "M12 4V20 M4 12H20" :
+        root.symbol == ActionSymbol.track-add ? "M3 5H14 M3 12H11 M3 19H14 M18 7V17 M13 12H23" :
+        root.symbol == ActionSymbol.transform ? "M5 5H19V19H5Z M3 3H7V7H3Z M17 3H21V7H17Z M3 17H7V21H3Z M17 17H21V21H17Z" :
+        root.symbol == ActionSymbol.undo ? "M9 4L4 9L9 14 M4 9H14C22 9 22 20 14 20H10" :
+        root.symbol == ActionSymbol.redo ? "M15 4L20 9L15 14 M20 9H10C2 9 2 20 10 20H14" :
+        root.symbol == ActionSymbol.folder ? "M3 8V4H9L11 6H21V20H3Z M3 10H21" :
+        root.symbol == ActionSymbol.save ? "M3 3H18L21 6V21H3Z M7 3V9H16V3 M7 21V14H17V21" :
+        root.symbol == ActionSymbol.save-as ? "M3 3H13 M3 3V21H21V14 M7 3V9H12 M7 21V14H13 M18 2V10 M14 6H22" :
+        root.symbol == ActionSymbol.link ? "M10 8L13 5A4 4 0 0 1 19 11L16 14 M14 16L11 19A4 4 0 0 1 5 13L8 10 M8 16L16 8" :
+        root.symbol == ActionSymbol.unlink ? "M10 8L13 5A4 4 0 0 1 19 11L16 14 M14 16L11 19A4 4 0 0 1 5 13L8 10 M3 3L21 21" :
+        root.symbol == ActionSymbol.import-file ? "M12 3V17 M6 11L12 17L18 11 M4 21H20" :
+        root.symbol == ActionSymbol.export-file ? "M12 17V3 M6 9L12 3L18 9 M4 21H20" :
+        root.symbol == ActionSymbol.settings ? "M9 3H15L16 6L19 7L22 10V14L19 17L16 18L15 21H9L8 18L5 17L2 14V10L5 7L8 6Z M16 12A4 4 0 1 1 8 12A4 4 0 1 1 16 12Z" :
+        root.symbol == ActionSymbol.previous ? "M4 4V20 M19 4L8 12L19 20Z" :
+        root.symbol == ActionSymbol.play ? "M7 4L20 12L7 20Z" :
+        root.symbol == ActionSymbol.pause ? "M7 4H9V20H7Z M15 4H17V20H15Z" :
+        root.symbol == ActionSymbol.next ? "M20 4V20 M5 4L16 12L5 20Z" :
+        root.symbol == ActionSymbol.split ? "M9 16L20 3 M9 8L20 21 M10 6A3 3 0 1 1 4 6A3 3 0 1 1 10 6Z M10 18A3 3 0 1 1 4 18A3 3 0 1 1 10 18Z" :
+        root.symbol == ActionSymbol.delete ? "M4 6H20 M9 6V3H15V6 M6 6L7 21H17L18 6 M10 10V17 M14 10V17" :
+        root.symbol == ActionSymbol.minus ? "M4 12H20" :
+        root.symbol == ActionSymbol.magnet ? "M4 4V13A8 8 0 0 0 20 13V4H15V13A3 3 0 0 1 9 13V4Z M4 8H9 M15 8H20" :
+        root.symbol == ActionSymbol.fit ? "M3 4V20 M21 4V20 M7 12H17 M10 8L6 12L10 16 M14 8L18 12L14 16" :
+        root.symbol == ActionSymbol.fit-view ? "M3 9V3H9 M15 3H21V9 M21 15V21H15 M9 21H3V15" :
+        root.symbol == ActionSymbol.queue ? "M4 5H20 M4 12H20 M4 19H13 M17 16L22 19L17 22Z" :
+        root.symbol == ActionSymbol.history ? "M3 5V11H9 M4 10A8 8 0 1 1 4 16 M12 7V12L15 14" :
+        root.symbol == ActionSymbol.restore ? "M13 3H17L21 7V21H11 M17 3V7H21 M2 11H8V5 M3 11C5 7 11 7 14 11C17 16 11 21 7 18" :
+        root.symbol == ActionSymbol.close ? "M5 5L19 19 M19 5L5 19" :
+        root.symbol == ActionSymbol.stop ? "M6 6H18V18H6Z" :
+        root.symbol == ActionSymbol.check ? "M4 12L9 17L20 6" :
+        root.symbol == ActionSymbol.layers ? "M3 8L12 3L21 8L12 13Z M3 12L12 17L21 12 M3 16L12 21L21 16" :
+        root.symbol == ActionSymbol.proxy ? "M3 4H16V14H3Z M8 10H21V20H8Z" :
+        root.symbol == ActionSymbol.mic ? "M9 5A3 3 0 0 1 15 5V12A3 3 0 0 1 9 12Z M6 11V12A6 6 0 0 0 18 12V11 M12 18V22 M8 22H16" :
+        root.symbol == ActionSymbol.cube ? "M12 3L21 8V16L12 21L3 16V8Z M3 8L12 13L21 8 M12 13V21" :
+        root.symbol == ActionSymbol.monitor ? "M3 4H21V17H3Z M12 17V21 M7 21H17" :
+        root.symbol == ActionSymbol.node ? "M3 5H14V15H3Z M14 10H19V19H22 M6 9H11" :
+        root.symbol == ActionSymbol.compare ? "M3 5H21V19H3Z M12 3V21 M5 15L10 10 M14 16L19 11" :
+        root.symbol == ActionSymbol.eye ? "M2 12Q12 1 22 12Q12 23 2 12Z M15 12A3 3 0 1 1 9 12A3 3 0 1 1 15 12Z" :
+        root.symbol == ActionSymbol.eye-off ? "M2 12Q12 1 22 12Q12 23 2 12Z M3 3L21 21" :
+        root.symbol == ActionSymbol.camera ? "M3 7H7L9 4H15L17 7H21V20H3Z M16 13A4 4 0 1 1 8 13A4 4 0 1 1 16 13Z" :
+        root.symbol == ActionSymbol.image ? "M3 4H21V20H3Z M3 17L9 11L13 15L16 12L21 17 M17 8H18" :
+        root.symbol == ActionSymbol.match ? "M4 11V19H12 M20 13V5H12 M4 19L10 13 M20 5L14 11" :
+        root.symbol == ActionSymbol.mark-in ? "M14 4H6V20H14 M9 12H21 M17 8L21 12L17 16" :
+        root.symbol == ActionSymbol.mark-out ? "M10 4H18V20H10 M15 12H3 M7 8L3 12L7 16" :
+        root.symbol == ActionSymbol.sync ? "M4 6H19L16 3 M20 18H5L8 21 M8 10L5 12L8 14 M16 10L19 12L16 14" :
+        root.symbol == ActionSymbol.title ? "M4 7V4H20V7 M12 4V20 M8 20H16" :
+        root.symbol == ActionSymbol.subtitle ? "M3 5H21V19H3Z M6 12H11 M13 12H18 M6 15H18" :
+        root.symbol == ActionSymbol.subtitle-import ? "M3 5H15V19H3Z M6 12H12 M6 15H12 M19 4V15 M16 12L19 15L22 12" :
+        root.symbol == ActionSymbol.subtitle-export ? "M3 5H15V19H3Z M6 12H12 M6 15H12 M19 15V4 M16 7L19 4L22 7" :
+        root.symbol == ActionSymbol.insert ? "M3 13H8V19H3Z M16 13H21V19H16Z M12 3V13 M8 9L12 13L16 9" :
+        root.symbol == ActionSymbol.overwrite ? "M3 13H21V19H3Z M7 6H17V13H7Z M12 2V6" :
+        root.symbol == ActionSymbol.ripple-delete ? "M3 7H8V17H3Z M16 7H21V17H16Z M9 12H15 M10 9L13 12L10 15" :
+        root.symbol == ActionSymbol.slip ? "M5 6V18 M19 6V18 M8 12H16 M11 9L8 12L11 15 M13 9L16 12L13 15" :
+        root.symbol == ActionSymbol.slide ? "M8 8H16V16H8Z M2 12H8 M16 12H22 M5 9L2 12L5 15 M19 9L22 12L19 15" :
+        root.symbol == ActionSymbol.keyframe ? "M12 3L21 12L12 21L3 12Z" :
+        root.symbol == ActionSymbol.keyframe-add ? "M9 3L16 10L9 17L2 10Z M18 12V22 M13 17H23" :
+        root.symbol == ActionSymbol.keyframe-remove ? "M9 3L16 10L9 17L2 10Z M13 17H23" :
+        root.symbol == ActionSymbol.ease ? "M3 19C3 19 9 19 12 12C15 5 21 5 21 5" :
+        root.symbol == ActionSymbol.target ? "M12 2V8 M12 16V22 M2 12H8 M16 12H22 M19 12A7 7 0 1 1 5 12A7 7 0 1 1 19 12Z" :
+        root.symbol == ActionSymbol.copy ? "M8 8H21V21H8Z M16 5V3H3V16H5" :
+        root.symbol == ActionSymbol.paste ? "M8 4H5V21H19V4H16 M8 3H16V7H8Z M8 12H16 M8 16H14" :
+        root.symbol == ActionSymbol.marker-add ? "M4 21V4H15L12 8L15 12H4 M18 13V21 M14 17H22" :
+        root.symbol == ActionSymbol.marker-remove ? "M4 21V4H15L12 8L15 12H4 M14 17H22" :
+        root.symbol == ActionSymbol.audio ? "M3 9H7L12 5V19L7 15H3Z M15 8Q19 12 15 16 M18 5Q25 12 18 19" :
+        root.symbol == ActionSymbol.file ? "M5 3H15L20 8V21H5Z M15 3V8H20 M8 13H17 M8 17H17" :
+        root.symbol == ActionSymbol.film ? "M3 4H21V20H3Z M7 4V20 M17 4V20 M3 9H7 M3 15H7 M17 9H21 M17 15H21" :
+        root.symbol == ActionSymbol.box ? "M3 6L12 3L21 6L12 9Z M3 6V18L12 21L21 18V6 M12 9V21" :
+        root.symbol == ActionSymbol.code ? "M8 6L3 12L8 18 M16 6L21 12L16 18 M14 4L10 20" :
+        root.symbol == ActionSymbol.lock ? "M5 10H19V21H5Z M8 10V7A4 4 0 0 1 16 7V10 M12 14V17" :
+        root.symbol == ActionSymbol.unlock ? "M5 10H19V21H5Z M8 10V7A4 4 0 0 1 16 7 M12 14V17" :
+        root.symbol == ActionSymbol.up ? "M12 20V4 M6 10L12 4L18 10" :
+        root.symbol == ActionSymbol.down ? "M12 4V20 M6 14L12 20L18 14" :
+        root.symbol == ActionSymbol.audio-off ? "M3 9H7L12 5V19L7 15H3Z M16 9L22 15 M22 9L16 15" :
+        root.symbol == ActionSymbol.solo ? "M4 13V11A8 8 0 0 1 20 11V13 M4 12H8V20H4Z M16 12H20V20H16Z" :
+        root.symbol == ActionSymbol.disclosure-down ? "M5 8H19L12 17Z" :
+        root.symbol == ActionSymbol.disclosure-up ? "M5 16H19L12 7Z" :
+        root.symbol == ActionSymbol.disclosure-right ? "M8 5V19L17 12Z" :
+        root.symbol == ActionSymbol.grip ? "M8 4H9V5H8Z M15 4H16V5H15Z M8 11H9V12H8Z M15 11H16V12H15Z M8 18H9V19H8Z M15 18H16V19H15Z" :
+        root.symbol == ActionSymbol.maximize ? "M4 4H20V20H4Z" :
+        root.symbol == ActionSymbol.restore-window ? "M5 8H16V19H5Z M8 8V5H19V16H16" :
+        root.symbol == ActionSymbol.math ? "M3 8H11 M7 4V12 M13 17H21" :
+        root.symbol == ActionSymbol.warning ? "M12 3L22 20H2Z M12 9V14 M12 17H12.1" :
+        root.symbol == ActionSymbol.move ? "M12 3V21 M3 12H21 M9 6L12 3L15 6 M9 18L12 21L15 18 M6 9L3 12L6 15 M18 9L21 12L18 15" :
+        root.symbol == ActionSymbol.edit ? "M4 5H20V19H4Z M4 13H20 M8 16H11 M14 16H17 M8 9L11 11L8 13" :
+        root.symbol == ActionSymbol.controls ? "M5 3V21 M12 3V21 M19 3V21 M2 8H8 M9 15H15 M16 7H22" :
+        root.symbol == ActionSymbol.sun ? "M16 12A4 4 0 1 1 8 12A4 4 0 1 1 16 12Z M12 2V5 M12 19V22 M2 12H5 M19 12H22 M5 5L7 7 M17 17L19 19 M19 5L17 7 M7 17L5 19" :
+        root.symbol == ActionSymbol.eyedropper ? "M4 17L10 11 M4 17L3 21L7 20L14 13 M9 9L15 15 M11 11L18 4A2.5 2.5 0 0 1 22 8L15 15" :
+        root.symbol == ActionSymbol.black-level ? "M4 5H9V19H4Z M11 19H15 M17 19H21" :
+        root.symbol == ActionSymbol.shadow-level ? "M4 10H9V19H4Z M11 7H15V19H11Z M17 19H21" :
+        root.symbol == ActionSymbol.dark-level ? "M4 14H8V19H4Z M10 9H14V19H10Z M16 19H20" :
+        root.symbol == ActionSymbol.light-level ? "M4 19H8 M10 12H14V19H10Z M16 7H20V19H16Z" :
+        root.symbol == ActionSymbol.highlight-level ? "M4 19H8 M10 14H14V19H10Z M16 3H20V19H16Z" :
+        root.symbol == ActionSymbol.sparkle ? "M12 2L14.5 9L22 12L14.5 15L12 22L9.5 15L2 12L9.5 9Z" :
+        root.symbol == ActionSymbol.channel ? "M12 3A9 9 0 1 1 11.99 3Z M9 16V8H12A2 2 0 0 1 12 12H9 M12 12L15 16" :
+        root.symbol == ActionSymbol.channel-green ? "M12 3A9 9 0 1 1 11.99 3Z M15 9A4 4 0 1 0 15 15V12H12" :
+        root.symbol == ActionSymbol.channel-blue ? "M12 3A9 9 0 1 1 11.99 3Z M9 16V8H13A2 2 0 1 1 13 12H9 M13 12A2 2 0 1 1 13 16H9" :
+        "";
+}
+
+export component ToolButton inherits Rectangle {
+    in property <string> label;
+    in property <string> visible-label: root.label;
+    in property <string> tooltip-text: root.visible-label;
+    in property <ActionSymbol> symbol;
+    in property <bool> active: true;
+    in property <bool> selected: false;
+    in property <bool> show-label: false;
+    in property <bool> primary: false;
+    in property <length> icon-size: 18px;
+    in property <length> label-padding: 8px;
+    in property <length> label-font-size: 12px;
+    callback clicked();
+
+    min-width: 32px;
+    horizontal-stretch: 0;
+    max-width: root.show-label ? 10000px : 32px;
+    height: 32px;
+    border-radius: 5px;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    background: root.primary && root.active ? (touch.has-hover ? #633e94 : #55387a)
+        : root.selected ? Theme.graph-active
+        : root.active && touch.has-hover ? Theme.card
+        : root.show-label ? Theme.panel : transparent;
+
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.active;
+    accessible-action-default => { if root.active { root.clicked(); } }
+
+    HorizontalLayout {
+        alignment: center;
+        cross-axis-alignment: center;
+        padding-left: root.show-label ? root.label-padding : 0px;
+        padding-right: root.show-label ? root.label-padding : 0px;
+        spacing: 6px;
+        if root.symbol != ActionSymbol.none: ActionIcon {
+            symbol: root.symbol;
+            width: root.icon-size; height: root.icon-size;
+            stroke: !root.active ? Theme.secondary : root.selected ? Theme.accent-text : Theme.foreground;
+            opacity: root.active ? 1 : 0.55;
+        }
+        if root.show-label: Text {
+            text: root.visible-label;
+            color: root.active ? Theme.foreground : Theme.secondary;
+            opacity: root.active ? 1 : 0.7;
+            font-size: root.label-font-size;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    focus := FocusScope {
+        enabled: root.active;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { return accept; }
+            reject
+        }
+        key-released(event) => {
+            if event.text == " " || event.text == "\n" { root.clicked(); return accept; }
+            reject
+        }
+    }
+
+    touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        enabled: root.active;
+        mouse-cursor: root.active ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    Tooltip {
+        text: @markdown("\{root.tooltip-text}");
+    }
+}

@@ -1,3 +1,4 @@
+import { ActionIcon, ActionSymbol, ToolButton } from "action_button.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 
@@ -77,43 +78,6 @@ component NodeTypeIcon inherits Rectangle {
         viewbox-width: 16; viewbox-height: 16;
         stroke: #ffffff99; stroke-width: 1.3px; fill: transparent;
         commands: "M4 4 L12 4 L12 12 L4 12 Z M5 4 L5 1 M8 4 L8 1 M11 4 L11 1 M5 12 L5 15 M8 12 L8 15 M11 12 L11 15 M4 5 L1 5 M4 8 L1 8 M4 11 L1 11 M12 5 L15 5 M12 8 L15 8 M12 11 L15 11";
-    }
-}
-
-component GraphToolButton inherits Rectangle {
-    in property <string> text;
-    in property <string> label;
-    in property <bool> enabled: true;
-    in property <bool> active: false;
-    in property <bool> fit-icon: false;
-    callback clicked();
-    width: 32px;
-    height: 30px;
-    background: root.active ? Theme.graph-active : hit.has-hover && root.enabled ? Theme.card : transparent;
-    border-radius: 4px;
-    opacity: root.enabled ? 1 : 0.35;
-    Text {
-        width: parent.width; height: parent.height;
-        text: root.text;
-        color: root.active ? Theme.accent : Theme.foreground;
-        font-size: root.text == "−" || root.text == "+" ? 20px : 11px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    if root.fit-icon: Path {
-        x: 9px; y: 8px; width: 14px; height: 14px;
-        viewbox-width: 16; viewbox-height: 16;
-        stroke: root.active ? Theme.accent : Theme.foreground;
-        stroke-width: 1.4px; fill: transparent;
-        commands: "M1 6 L1 1 L6 1 M10 1 L15 1 L15 6 M15 10 L15 15 L10 15 M6 15 L1 15 L1 10";
-    }
-    hit := TouchArea {
-        width: parent.width; height: parent.height;
-        enabled: root.enabled;
-        accessible-role: button;
-        accessible-label: root.label;
-        accessible-action-default => { root.clicked(); }
-        clicked => { root.clicked(); }
     }
 }
 
@@ -226,7 +190,6 @@ export component GraphView inherits Rectangle {
         graph-focus.focus();
     }
     // Updating the readout after layout avoids a zoom -> text metrics -> viewport loop.
-    changed zoom => { zoom-readout.text = round(root.zoom * 100) + "%"; }
 
     function set-zoom(value: float) {
         if (root.drag-node-index >= 0 || root.port-drag-armed) { return; }
@@ -561,7 +524,12 @@ export component GraphView inherits Rectangle {
                             accessible-label: (node.preview-expanded ? "Collapse " : "Expand ") + node.label + " preview";
                             accessible-action-default => { root.toggle-preview(node.node-id); }
                             clicked => { root.toggle-preview(node.node-id); }
-                            Text { width: parent.width; height: parent.height; text: node.preview-expanded ? "▴" : "▾"; color: #ffffffcc; font-size: 10px * root.zoom; vertical-alignment: center; horizontal-alignment: center; }
+                            ActionIcon {
+                                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                                width: 11px * root.zoom; height: self.width;
+                                symbol: node.preview-expanded ? ActionSymbol.disclosure-up : ActionSymbol.disclosure-down;
+                                stroke: #ffffffcc; fill: #ffffffcc;
+                            }
                         }
                         if root.node-previews-enabled && node.preview-height > 0 && node.preview-expanded: Rectangle {
                             x: 8px * root.zoom; y: node.preview-top * root.zoom * 1px;
@@ -637,7 +605,7 @@ export component GraphView inherits Rectangle {
                                 y: 0px; height: parent.height;
                                 width: node.kind == "Math" ? parent.width - 40px * root.zoom : parent.width / 2 - 20px * root.zoom;
                                 text: port.label;
-                                color: port-area.has-hover ? Theme.accent : Theme.foreground;
+                                color: port-area.has-hover ? Theme.accent-text : Theme.foreground;
                                 font-size: (node.kind == "Math" ? 10px : 11px) * root.zoom;
                                 vertical-alignment: center;
                                 horizontal-alignment: port.output ? right : left;
@@ -732,21 +700,24 @@ export component GraphView inherits Rectangle {
             drop-shadow-offset-y: 1px;
             VerticalLayout {
                 padding: 0px; spacing: 0px;
-                GraphToolButton { text: "+"; label: "Zoom in"; enabled: root.zoom < 2 && root.drag-node-index < 0; clicked => { root.set-zoom(root.zoom * 1.25); graph-focus.focus(); } }
-                GraphToolButton { text: "−"; label: "Zoom out"; enabled: root.zoom > 0.01 && root.drag-node-index < 0; clicked => { root.set-zoom(root.zoom / 1.25); graph-focus.focus(); } }
-                GraphToolButton { fit-icon: true; label: "Fit graph in view"; active: root.fitting; enabled: root.nodes.length > 0 && root.drag-node-index < 0; clicked => { root.view-offset-x = 0px; root.view-offset-y = 0px; root.fitting = true; scroll.content-x = 0px; scroll.content-y = 0px; graph-focus.focus(); } }
-                GraphToolButton {
+                ToolButton { height: 30px; label: "Zoom in"; symbol: ActionSymbol.add; active: root.zoom < 2 && root.drag-node-index < 0; clicked => { root.set-zoom(root.zoom * 1.25); graph-focus.focus(); } }
+                ToolButton { height: 30px; label: "Zoom out"; symbol: ActionSymbol.minus; active: root.zoom > 0.01 && root.drag-node-index < 0; clicked => { root.set-zoom(root.zoom / 1.25); graph-focus.focus(); } }
+                ToolButton { height: 30px; symbol: ActionSymbol.fit-view; label: "Fit graph in view"; selected: root.fitting; active: root.nodes.length > 0 && root.drag-node-index < 0; clicked => { root.view-offset-x = 0px; root.view-offset-y = 0px; root.fitting = true; scroll.content-x = 0px; scroll.content-y = 0px; graph-focus.focus(); } }
+                ToolButton {
+                    width: 32px; height: 30px;
                     label: "Reset zoom to 100 percent";
-                    enabled: root.drag-node-index < 0;
+                    visible-label: round(root.zoom * 100) + "%";
+                    tooltip-text: "Reset zoom to 100 percent";
+                    show-label: true; label-padding: 0px; label-font-size: 9px;
+                    active: root.drag-node-index < 0;
                     clicked => { root.set-zoom(1); graph-focus.focus(); }
-                    zoom-readout := Text { width: parent.width; height: parent.height; text: "100%"; font-size: 9px; color: Theme.dark ? Theme.secondary : #6e6e73; horizontal-alignment: center; vertical-alignment: center; }
                 }
             }
         }
 
         if root.selected-edge-id != "" || root.connection-active: Rectangle {
             x: (parent.width - self.width) / 2; y: 12px;
-            width: root.connection-active ? 166px : root.selected-edge-id != "" ? 136px : 154px;
+            width: root.connection-active ? 150px : root.selected-edge-id != "" ? 78px : 44px;
             height: 36px;
             background: Theme.graph-overlay; border-color: Theme.graph-node-border;
             border-width: 1px; border-radius: 8px;
@@ -754,9 +725,9 @@ export component GraphView inherits Rectangle {
             HorizontalLayout {
                 padding: 6px; padding-top: 3px; padding-bottom: 3px; spacing: 2px;
                 if root.connection-active: Text { text: "Choose an input"; color: Theme.dark ? Theme.secondary : #6e6e73; font-size: 11px; vertical-alignment: center; }
-                if !root.connection-active && root.selected-edge-id != "": GraphToolButton { width: 72px; text: "Reconnect"; label: "Reconnect selected edge"; enabled: !root.busy; clicked => { root.reconnect-edge(); graph-focus.focus(); } }
-                if !root.connection-active: GraphToolButton { width: 48px; text: "Delete"; label: "Delete selection"; enabled: !root.busy; clicked => { if (root.selected-edge-id != "") { root.delete-edge(); } else { root.remove-nodes(); } graph-focus.focus(); } }
-                if root.connection-active: GraphToolButton { width: 48px; text: "Cancel"; label: "Cancel connection"; enabled: !root.busy; clicked => { root.cancel-connection(); graph-focus.focus(); } }
+                if !root.connection-active && root.selected-edge-id != "": ToolButton { height: 30px; label: "Reconnect selected edge"; symbol: ActionSymbol.link; active: !root.busy; clicked => { root.reconnect-edge(); graph-focus.focus(); } }
+                if !root.connection-active: ToolButton { height: 30px; label: "Delete selection"; symbol: ActionSymbol.delete; active: !root.busy; clicked => { if (root.selected-edge-id != "") { root.delete-edge(); } else { root.remove-nodes(); } graph-focus.focus(); } }
+                if root.connection-active: ToolButton { height: 30px; label: "Cancel connection"; symbol: ActionSymbol.close; active: !root.busy; clicked => { root.cancel-connection(); graph-focus.focus(); } }
             }
         }
         }

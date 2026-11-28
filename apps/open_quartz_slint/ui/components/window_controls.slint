@@ -1,3 +1,5 @@
+import { ActionIcon, ActionSymbol } from "action_button.slint";
+
 // Shared by the graph editor and timeline editor; colors follow the host header.
 export component WindowControlButton inherits Rectangle {
     in property <string> action;
@@ -15,12 +17,13 @@ export component WindowControlButton inherits Rectangle {
     accessible-role: button;
     accessible-label: root.action == "close" ? "Close window" : root.action == "minimize" ? "Minimize window" : root.maximized ? "Restore window" : "Maximize window";
     accessible-action-default => { root.clicked(); }
-    Text {
-        width: parent.width; height: parent.height;
-        text: root.action == "close" ? "×" : root.action == "minimize" ? "−" : root.maximized ? "❐" : "□";
-        color: root.mac-style ? #5b2a20 : root.foreground;
-        font-size: root.mac-style ? 9px : 16px;
-        horizontal-alignment: center; vertical-alignment: center;
+    ActionIcon {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: root.mac-style ? 9px : 13px; height: self.width;
+        symbol: root.action == "close" ? ActionSymbol.close
+            : root.action == "minimize" ? ActionSymbol.minus
+            : root.maximized ? ActionSymbol.restore-window : ActionSymbol.maximize;
+        stroke: root.mac-style ? #5b2a20 : root.foreground;
         visible: !root.mac-style || area.has-hover;
     }
     area := TouchArea { clicked => { root.clicked(); } }

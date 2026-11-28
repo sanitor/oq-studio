@@ -1,0 +1,180 @@
+import { Theme } from "../theme.slint";
+import { ActionIcon, ActionSymbol } from "action_button.slint";
+
+export struct SegmentOption {
+    key: string,
+    label: string,
+    accessible-name: string,
+    symbol: ActionSymbol,
+    disabled: bool,
+    thumbnail: image,
+    has-thumbnail: bool,
+    tint: color,
+}
+
+component SegmentItem inherits Rectangle {
+    in property <SegmentOption> option;
+    in property <bool> selected;
+    in property <bool> show-label;
+    in property <length> label-font-size;
+    in property <string> selected-description;
+    callback clicked();
+
+    min-width: 28px + (root.show-label ? 4px + caption.preferred-width : 0px);
+    preferred-width: self.min-width;
+    horizontal-stretch: 1;
+    border-radius: 4px;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    background: root.selected ? (Theme.dark ? #55387a : #eee5ff)
+        : !root.option.disabled && segment.has-hover ? Theme.card : transparent;
+
+    private property <string> name: root.option.accessible-name == "" ? root.option.label : root.option.accessible-name;
+    private property <color> ink: root.selected ? (Theme.dark ? #d4b9ff : Theme.accent-text) : Theme.secondary;
+    accessible-role: button;
+    accessible-label: root.name;
+    accessible-description: root.selected ? root.selected-description : "";
+    accessible-enabled: !root.option.disabled;
+    accessible-action-default => { if !root.option.disabled { root.clicked(); } }
+
+    private property <length> content-width: 16px + (root.show-label ? 4px + caption.preferred-width : 0px);
+    private property <length> content-x: (root.width - root.content-width) / 2;
+    if root.option.has-thumbnail: Image {
+        x: root.content-x; y: (parent.height - self.height) / 2;
+        width: 16px; height: 16px;
+        source: root.option.thumbnail; image-fit: cover;
+        opacity: root.option.disabled ? 0.55 : 1;
+    }
+    if !root.option.has-thumbnail: ActionIcon {
+        x: root.content-x; y: (parent.height - self.height) / 2;
+        width: 16px; height: 16px;
+        symbol: root.option.symbol;
+        stroke: root.option.tint.alpha > 0 ? root.option.tint : root.ink;
+        opacity: root.option.disabled ? 0.55 : 1;
+    }
+    caption := Text {
+        visible: root.show-label;
+        x: root.content-x + 20px; y: 0px;
+        width: self.preferred-width; height: parent.height;
+        text: root.option.label;
+        color: root.ink;
+        opacity: root.option.disabled ? 0.55 : 1;
+        font-size: root.label-font-size; font-weight: 600;
+        vertical-alignment: center;
+    }
+
+    focus := FocusScope {
+        enabled: !root.option.disabled;
+        focus-on-click: false;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { return accept; }
+            reject
+        }
+        key-released(event) => {
+            if event.text == " " || event.text == "\n" { root.clicked(); return accept; }
+            reject
+        }
+    }
+
+    segment := TouchArea {
+        width: parent.width; height: parent.height;
+        enabled: !root.option.disabled;
+        mouse-cursor: root.option.disabled ? default : pointer;
+        clicked => { root.clicked(); }
+    }
+    Tooltip { text: @markdown("\{root.name}"); }
+}
+
+component SegmentMeasure inherits Rectangle {
+    in property <int> count;
+    in property <bool> all-labels;
+    in property <string> selected-key;
+    in property <length> label-font-size;
+    pure callback option-at(int) -> SegmentOption;
+    out property <length> measured-width: measure.preferred-width;
+    width: 0px; height: 0px; opacity: 0; clip: true;
+
+    measure := HorizontalLayout {
+        width: 0px; height: 0px; spacing: 2px;
+        for index in root.count: Rectangle {
+            private property <SegmentOption> option: root.option-at(index);
+            width: 28px + (root.all-labels || self.option.key == root.selected-key ? 4px + label-size.preferred-width : 0px);
+            height: 0px;
+            label-size := Text { text: parent.option.label; font-size: root.label-font-size; font-weight: 600; }
+        }
+    }
+}
+
+component SegmentRow inherits Rectangle {
+    in property <int> count;
+    in property <length> available-width;
+    in property <string> selected-key;
+    in property <string> selected-description;
+    in property <length> label-font-size;
+    pure callback option-at(int) -> SegmentOption;
+    callback selected(string);
+
+    all := SegmentMeasure {
+        count: root.count; all-labels: true;
+        selected-key: root.selected-key; label-font-size: root.label-font-size;
+        option-at(index) => { return root.option-at(index); }
+    }
+    active := SegmentMeasure {
+        count: root.count;
+        selected-key: root.selected-key; label-font-size: root.label-font-size;
+        option-at(index) => { return root.option-at(index); }
+    }
+    HorizontalLayout {
+        width: parent.width; height: parent.height; spacing: 2px;
+        for index in root.count: SegmentItem {
+            option: root.option-at(index);
+            selected: self.option.key == root.selected-key;
+            selected-description: root.selected-description;
+            label-font-size: root.label-font-size;
+            // Measure each row independently before dropping its labels.
+            show-label: all.measured-width <= root.available-width ||
+                (self.selected && active.measured-width <= root.available-width);
+            clicked => { root.selected(self.option.key); }
+        }
+    }
+}
+
+export component SegmentedControl inherits Rectangle {
+    in property <[SegmentOption]> options;
+    in property <int> option-count: root.options.length;
+    in property <string> selected-key;
+    in property <string> selected-description: "Selected";
+    in property <length> label-font-size: 12px;
+    in property <length> item-height: 28px;
+    pure callback dynamic-option(int) -> SegmentOption;
+    callback selected(string);
+
+    horizontal-stretch: 1;
+    min-width: 34px; preferred-width: 34px;
+    height: root.option-count > 0 ? 6px + root.row-count * root.item-height + (root.row-count - 1) * 2px : 0px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.dark ? #111315 : Theme.card;
+
+    private property <length> available-width: max(0px, root.width - 6px);
+    private property <int> icons-per-row: max(1, Math.floor((root.available-width + 2px) / 30px));
+    // Wrap only when icon-only items cannot fit, then balance the rows by item count.
+    private property <int> row-count: max(1, Math.ceil(root.option-count / root.icons-per-row));
+    private property <int> base-count: Math.floor(root.option-count / root.row-count);
+    private property <int> extra-rows: root.option-count - root.base-count * root.row-count;
+
+    for row in (root.option-count > 0 ? root.row-count : 0): SegmentRow {
+        x: 3px; y: 3px + row * (root.item-height + 2px);
+        width: parent.width - 6px; height: root.item-height;
+        count: root.base-count + (row < root.extra-rows ? 1 : 0);
+        available-width: root.available-width;
+        selected-key: root.selected-key; selected-description: root.selected-description;
+        label-font-size: root.label-font-size;
+        option-at(index) => {
+            let position = row * root.base-count + min(row, root.extra-rows) + index;
+            return root.options.length > 0 ? root.options[position] : root.dynamic-option(position);
+        }
+        selected(key) => { root.selected(key); }
+    }
+}

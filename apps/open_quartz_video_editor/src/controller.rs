@@ -156,6 +156,10 @@ impl Controller {
         let audio_clip_model = Rc::new(VecModel::default());
         window.set_assets(ModelRc::from(asset_model.clone()));
         window.set_clips(ModelRc::from(clip_model.clone()));
+        window.set_pipeline_tab_clips(ModelRc::new(slint::FilterModel::new(
+            ModelRc::from(clip_model.clone()),
+            |clip: &ClipRow| !clip.is_title,
+        )));
         window.set_audio_tracks(ModelRc::from(audio_track_model.clone()));
         window.set_audio_clips(ModelRc::from(audio_clip_model.clone()));
         let timeline_video_model = Rc::new(VecModel::default());
@@ -2596,6 +2600,7 @@ impl Controller {
             window.set_recovery_status("".into());
         }
         window.set_project_name(self.document.data.name.clone().into());
+        window.set_project_has_path(self.document.path().is_some());
         window.set_project_path(
             self.document
                 .path()

@@ -1,5 +1,7 @@
+import { SegmentedControl } from "segmented_control.slint";
+import { ActionIcon, ActionSymbol, ToolButton } from "action_button.slint";
 import { CheckBox } from "std-widgets.slint";
-import { Button, LineEdit } from "compact_widgets.slint";
+import { LineEdit } from "compact_widgets.slint";
 import { Theme } from "../theme.slint";
 
 export struct CorrectorField { key: string, label: string, stage: string, tool: string, value: float, text: string, minimum: float, maximum: float, wheel-x: float, wheel-y: float }
@@ -80,34 +82,24 @@ export component CorrectorEditor inherits Rectangle {
         padding: 12px; spacing: 8px;
         HorizontalLayout {
             CheckBox { text: "Corrector enabled"; checked: root.active; enabled: !root.busy; toggled => { root.edit(root.target, "enable", "", self.checked ? "true" : "false"); } }
-            Button { text: "Reset"; accessible-label: "Reset Color Corrector"; enabled: !root.busy; clicked => { root.edit(root.target, "reset", "all", ""); } }
+            ToolButton { label: "Reset Color Corrector"; symbol: ActionSymbol.history; active: !root.busy; clicked => { root.edit(root.target, "reset", "all", ""); } }
         }
         Text { text: root.domain; color: Theme.secondary; font-size: 10px; wrap: word-wrap; }
-        HorizontalLayout {
-            for stage[index] in root.stages: Rectangle {
-                visible: index < 3;
-                horizontal-stretch: self.visible ? 1 : 0;
-                min-width: self.visible ? 64px : 0px;
-                height: 24px;
-                if index < 3: Button {
-                    width: parent.width; height: parent.height;
-                    text: stage.label; accessible-label: "Corrector palette " + stage.label;
-                    clicked => { root.palette = stage.key; }
-                }
+        if root.stages.length > 0: SegmentedControl {
+            option-count: root.stages.length;
+            item-height: 24px; label-font-size: 11px;
+            selected-key: root.palette;
+            dynamic-option(index) => {
+                let stage = root.stages[index];
+                return {
+                    key: stage.key, label: stage.label, accessible-name: "Corrector palette " + stage.label,
+                    symbol: stage.key == "primaries" ? ActionSymbol.controls
+                        : stage.key == "hdr_zones" ? ActionSymbol.sun
+                        : stage.key == "rgb_mixer" ? ActionSymbol.layers
+                        : stage.key == "curves" ? ActionSymbol.ease : ActionSymbol.eyedropper,
+                };
             }
-        }
-        HorizontalLayout {
-            for stage[index] in root.stages: Rectangle {
-                visible: index >= 3;
-                horizontal-stretch: self.visible ? 1 : 0;
-                min-width: self.visible ? 64px : 0px;
-                height: 24px;
-                if index >= 3: Button {
-                    width: parent.width; height: parent.height;
-                    text: stage.label; accessible-label: "Corrector palette " + stage.label;
-                    clicked => { root.palette = stage.key; }
-                }
-            }
+            selected(key) => { root.palette = key; }
         }
         VerticalLayout {
             spacing: 0px;
@@ -117,36 +109,36 @@ export component CorrectorEditor inherits Rectangle {
                 if stage.key == root.palette: HorizontalLayout {
                     CheckBox { text: stage.label + " enabled"; checked: stage.active; enabled: !root.busy;
                         toggled => { root.edit(root.target, "stage-enable", stage.key, self.checked ? "true" : "false"); } }
-                    Button { text: "Reset"; accessible-label: "Reset " + stage.label; enabled: !root.busy;
+                    ToolButton { height: 22px; icon-size: 14px; label: "Reset " + stage.label; symbol: ActionSymbol.history; active: !root.busy;
                         clicked => { root.edit(root.target, "reset", stage.key, ""); } }
                 }
             }
         }
-        if root.palette == "primaries": VerticalLayout {
-            spacing: 3px;
-            HorizontalLayout {
-                Button { text: "Basic"; accessible-label: "Corrector primaries Basic"; clicked => { root.primary-tool = "basic"; } }
-                Button { text: "Lift"; accessible-label: "Corrector primaries Lift"; clicked => { root.primary-tool = "lift"; } }
-                Button { text: "Gamma"; accessible-label: "Corrector primaries Gamma"; clicked => { root.primary-tool = "gamma"; } }
-            }
-            HorizontalLayout {
-                Button { text: "Gain"; accessible-label: "Corrector primaries Gain"; clicked => { root.primary-tool = "gain"; } }
-                Button { text: "Offset"; accessible-label: "Corrector primaries Offset"; clicked => { root.primary-tool = "offset"; } }
-            }
+        if root.palette == "primaries": SegmentedControl {
+            item-height: 24px; label-font-size: 11px;
+            options: [
+                { key: "basic", label: "Basic", accessible-name: "Corrector primaries Basic", symbol: ActionSymbol.settings },
+                { key: "lift", label: "Lift", accessible-name: "Corrector primaries Lift", symbol: ActionSymbol.up },
+                { key: "gamma", label: "Gamma", accessible-name: "Corrector primaries Gamma", symbol: ActionSymbol.ease },
+                { key: "gain", label: "Gain", accessible-name: "Corrector primaries Gain", symbol: ActionSymbol.fit-view },
+                { key: "offset", label: "Offset", accessible-name: "Corrector primaries Offset", symbol: ActionSymbol.move },
+            ];
+            selected-key: root.primary-tool;
+            selected(key) => { root.primary-tool = key; }
         }
-        if root.palette == "hdr_zones": VerticalLayout {
-            spacing: 3px;
-            HorizontalLayout {
-                Button { text: "Black"; accessible-label: "Corrector zone Black"; clicked => { root.hdr-tool = "blacks"; } }
-                Button { text: "Shadow"; accessible-label: "Corrector zone Shadow"; clicked => { root.hdr-tool = "shadows"; } }
-                Button { text: "Dark"; accessible-label: "Corrector zone Dark"; clicked => { root.hdr-tool = "darks"; } }
-            }
-            HorizontalLayout {
-                Button { text: "Light"; accessible-label: "Corrector zone Light"; clicked => { root.hdr-tool = "lights"; } }
-                Button { text: "Highlight"; accessible-label: "Corrector zone Highlight"; clicked => { root.hdr-tool = "highlights"; } }
-                Button { text: "Specular"; accessible-label: "Corrector zone Specular"; clicked => { root.hdr-tool = "specular"; } }
-            }
-            Button { text: "Range / softness"; accessible-label: "Corrector zone ranges"; clicked => { root.hdr-tool = "ranges"; } }
+        if root.palette == "hdr_zones": SegmentedControl {
+            item-height: 24px; label-font-size: 11px;
+            options: [
+                { key: "blacks", label: "Black", accessible-name: "Corrector zone Black", symbol: ActionSymbol.black-level },
+                { key: "shadows", label: "Shadow", accessible-name: "Corrector zone Shadow", symbol: ActionSymbol.shadow-level },
+                { key: "darks", label: "Dark", accessible-name: "Corrector zone Dark", symbol: ActionSymbol.dark-level },
+                { key: "lights", label: "Light", accessible-name: "Corrector zone Light", symbol: ActionSymbol.light-level },
+                { key: "highlights", label: "Highlight", accessible-name: "Corrector zone Highlight", symbol: ActionSymbol.highlight-level },
+                { key: "specular", label: "Specular", accessible-name: "Corrector zone Specular", symbol: ActionSymbol.sparkle },
+                { key: "ranges", label: "Range / softness", accessible-name: "Corrector zone ranges", symbol: ActionSymbol.fit },
+            ];
+            selected-key: root.hdr-tool;
+            selected(key) => { root.hdr-tool = key; }
         }
         VerticalLayout {
             spacing: 0px;
@@ -162,13 +154,16 @@ export component CorrectorEditor inherits Rectangle {
             }
         }
         if root.palette == "curves": VerticalLayout {
-            HorizontalLayout {
-                for channel in [{ key: "master", label: "Master" }, { key: "red", label: "Red" },
-                        { key: "green", label: "Green" }, { key: "blue", label: "Blue" }]: Button {
-                    text: channel.label;
-                    accessible-label: "Corrector curve " + channel.label;
-                    clicked => { root.curve-channel = channel.key; }
-                }
+            SegmentedControl {
+                item-height: 24px; label-font-size: 11px;
+                options: [
+                    { key: "master", label: "Master", accessible-name: "Corrector curve Master", symbol: ActionSymbol.layers },
+                    { key: "red", label: "Red", accessible-name: "Corrector curve Red", symbol: ActionSymbol.channel },
+                    { key: "green", label: "Green", accessible-name: "Corrector curve Green", symbol: ActionSymbol.channel-green },
+                    { key: "blue", label: "Blue", accessible-name: "Corrector curve Blue", symbol: ActionSymbol.channel-blue },
+                ];
+                selected-key: root.curve-channel;
+                selected(key) => { root.curve-channel = key; }
             }
             Text { text: "Exposure offsets around 18% gray. Master and channel offsets combine in stops.";
                 wrap: word-wrap; font-size: 10px; color: Theme.secondary; }
@@ -192,7 +187,11 @@ export component CorrectorEditor inherits Rectangle {
                     }
                     Rectangle {
                         width: 64px; height: 22px; background: Theme.card; border-radius: 3px;
-                        Text { text: "↔"; color: Theme.secondary; horizontal-alignment: center; vertical-alignment: center; width: parent.width; height: parent.height; }
+                        ActionIcon {
+                            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                            width: 14px; height: 14px;
+                            symbol: ActionSymbol.slip; stroke: Theme.secondary;
+                        }
                         drag := TouchArea {
                             private property <float> baseline;
                             private property <length> start;
@@ -210,8 +209,8 @@ export component CorrectorEditor inherits Rectangle {
             }
         }
         }
-        Button { text: "Apply grade"; accessible-label: "Apply Color Corrector"; enabled: !root.busy; clicked => { root.edit(root.target, "commit", "", ""); } }
+        ToolButton { label: "Apply Color Corrector"; visible-label: "Apply grade"; symbol: ActionSymbol.check; show-label: true; active: !root.busy; clicked => { root.edit(root.target, "commit", "", ""); } }
         if root.error != "": Text { text: root.error; color: #d44747; wrap: word-wrap; font-size: 11px; }
-        Button { text: "Cancel gesture"; accessible-label: "Cancel Corrector gesture"; enabled: !root.busy; clicked => { root.edit(root.target, "cancel", "", ""); } }
+        ToolButton { label: "Cancel Corrector gesture"; visible-label: "Cancel gesture"; symbol: ActionSymbol.close; show-label: true; active: !root.busy; clicked => { root.edit(root.target, "cancel", "", ""); } }
     }
 }

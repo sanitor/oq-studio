@@ -456,7 +456,7 @@ export async function runScenarios({ endpoint, outputDir, projectPath, requireGp
     await checkpoint('save-project-through-file-menu', async () => {
       const nodes = (await headers()).map(nodeState);
       const edges = (await client.byLabel(/^Select connection /, { role: 'Button' })).map((element) => element.accessibleLabel).sort();
-      await activate('FILE ▾');
+      await activate('FILE');
       await activate('SAVE');
       // Reading the saved artifact checks completion, never creates/mutates app state.
       const saved = await client.waitFor(async () => {

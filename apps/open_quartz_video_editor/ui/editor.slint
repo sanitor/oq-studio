@@ -1,6 +1,7 @@
 import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView, Slider, TextEdit } from "std-widgets.slint";
 import { WindowControls } from "../../open_quartz_slint/ui/components/window_controls.slint";
-import { ToolButton } from "icon_button.slint";
+import { ActionIcon, ActionSymbol, ToolButton } from "../../open_quartz_slint/ui/components/action_button.slint";
+import { SegmentedControl } from "../../open_quartz_slint/ui/components/segmented_control.slint";
 import { GraphView, GraphNode, GraphEdge, GraphPort } from "../../open_quartz_slint/ui/components/graph_view.slint";
 import { Inspector, InspectorPort, InspectorUniform, InspectorFormField, InspectorFormGroup } from "../../open_quartz_slint/ui/components/inspector.slint";
 import { CorrectorField, CorrectorStage } from "../../open_quartz_slint/ui/components/corrector_editor.slint";
@@ -59,6 +60,7 @@ component NodeEffectTile inherits Rectangle {
         enabled: root.enabled;
         clicked => { root.clicked(); }
     }
+    Tooltip { text: @markdown("Add \{root.effect.label} node"); }
 }
 export struct ExportJobRow { path: string, phase: string, details: string, can_cancel: bool, can_retry: bool }
 export struct TranscriptRow { index: int, label: string, checked: bool }
@@ -79,18 +81,24 @@ component AssetCard inherits Rectangle {
     callback clicked();
     callback add_clicked(string);
     callback dropped(string, length, length);
-    height: 76px; background: root.asset.selected ? #29363a : #202427; border-radius: 6px;
+    height: 76px; background: root.asset.selected ? #352b46 : #202427; border-radius: 6px;
     accessible-role: button;
     accessible-label: root.asset.name;
     accessible-description: root.asset.details + (root.asset.online ? "; online" : "; offline");
     Rectangle {
         x: 7px; y: 8px; width: 88px; height: 60px; background: #101214; border-radius: 4px; clip: true;
         if root.asset.has_thumbnail: Image { width: parent.width; height: parent.height; source: root.asset.thumbnail; image-fit: cover; }
-        if !root.asset.has_thumbnail: Text { text: root.asset.online ? "▶" : "!"; color: root.asset.online ? #5bdcc9 : #ff7373; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+        if !root.asset.has_thumbnail: ActionIcon {
+            x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+            width: 24px; height: 24px;
+            symbol: root.asset.online ? ActionSymbol.play : ActionSymbol.warning;
+            stroke: root.asset.online ? #b486ff : #ff7373;
+        }
     }
     Text { x: 102px; y: 7px; width: parent.width - 136px; height: 18px; text: root.asset.name; color: root.asset.online ? #e4e8eb : #ff7373; font-size: 12px; font-weight: 600; overflow: elide; }
     Text { x: 102px; y: 27px; width: parent.width - 136px; height: 30px; text: root.asset.details; color: #8e979d; font-size: 11px; wrap: word-wrap; overflow: elide; }
-    Text { x: 102px; y: 58px; width: 100px; height: 16px; text: root.asset.online ? "● Ready" : "● Offline"; color: root.asset.online ? #49cba9 : #fa7373; font-size: 11px; }
+    Rectangle { x: 102px; y: 63px; width: 5px; height: 5px; border-radius: 3px; background: root.asset.online ? #bd9be7 : #fa7373; }
+    Text { x: 112px; y: 58px; width: 90px; height: 16px; text: root.asset.online ? "Ready" : "Offline"; color: root.asset.online ? #bd9be7 : #fa7373; font-size: 11px; }
     card_hit := TouchArea {
         width: parent.width - 30px; height: parent.height;
         private property <length> start_x;
@@ -111,8 +119,13 @@ component AssetCard inherits Rectangle {
             }
         }
     }
-    Text { x: parent.width - 28px; y: 25px; width: 24px; height: 24px; text: "+"; color: #38d9c3; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
-    TouchArea { x: parent.width - 30px; width: 30px; height: parent.height; accessible-role: button; accessible-label: "Add " + root.asset.name + " to timeline"; clicked => { root.add_clicked(root.asset.id); } }
+    ToolButton {
+        x: parent.width - 31px; y: (parent.height - self.height) / 2;
+        min-width: 30px; width: 30px;
+        label: "Add " + root.asset.name + " to timeline";
+        symbol: ActionSymbol.add;
+        clicked => { root.add_clicked(root.asset.id); }
+    }
 }
 
 // Capture absolute pointer coordinates so moving the preview under the pointer
@@ -215,14 +228,14 @@ component AudioTimelineClip inherits Rectangle {
     y: (root.video_lanes + root.item.lane) * 84px + 7px;
     width: max(2px, (root.item.duration + (root.mode == "trim-end" ? root.delta : root.mode == "trim-start" ? -root.delta : 0)) * root.zoom * 1px);
     height: 69px; border-radius: 4px;
-    background: root.item.muted ? #384647 : root.item.selected || root.mode != "" ? #27756b : #254e49;
-    Text { x: 8px; y: 7px; width: max(0px, parent.width - 16px); text: root.item.name; color: #e9f9f6; font-size: 11px; overflow: elide; }
+    background: root.item.muted ? #42404b : root.item.selected || root.mode != "" ? #67449a : #483365;
+    Text { x: 8px; y: 7px; width: max(0px, parent.width - 16px); text: root.item.name; color: #f5edff; font-size: 11px; overflow: elide; }
     if root.item.waveform != "": Rectangle {
         x: 8px; y: 26px; width: max(0px, parent.width - 16px); height: 39px;
         accessible-role: image;
         accessible-label: "Waveform " + root.item.name;
         Path { width: parent.width; height: parent.height; viewbox-width: 128; viewbox-height: 40;
-            commands: root.item.waveform; stroke: #83e6d1; stroke-width: 1px; }
+            commands: root.item.waveform; stroke: #d4b9ff; stroke-width: 1px; }
     }
     ClipGestureArea {
         width: parent.width; height: parent.height;
@@ -253,7 +266,7 @@ component AudioTimelineClip inherits Rectangle {
         Rectangle {
             x: 3px + (root.mode == (edge == 0 ? "fade-in" : "fade-out") ? root.delta * root.zoom * 1px : 0px);
             y: 3px; width: 9px; height: 9px; border-radius: 2px;
-            background: #83e6d1; border-width: 1px; border-color: #284c45;
+            background: #d4b9ff; border-width: 1px; border-color: #4b3669;
         }
     }
 }
@@ -315,8 +328,8 @@ component TimelineClip inherits Rectangle {
     y: 8px + (root.gesture_kind == "move" && root.lane >= 0 ? root.lane : root.item.lane) * root.lane_height;
     width: max(2px, (root.item.width + (root.gesture_kind == "trim-end" ? root.delta * root.zoom : root.gesture_kind == "trim-start" ? -root.delta * root.zoom : 0)) * 1px);
     height: 72px;
-    background: root.item.selected || root.gesture_kind != "" ? #265d59 : root.item.online ? #284844 : #633a3b;
-    border-color: root.error != "" ? #ff6666 : root.item.selected || root.gesture_kind != "" ? #49d8c6 : #32786f;
+    background: root.item.selected || root.gesture_kind != "" ? #55387a : root.item.online ? #413052 : #633a3b;
+    border-color: root.error != "" ? #ff6666 : root.item.selected || root.gesture_kind != "" ? #ad7aff : #7954a8;
     border-width: root.item.selected ? 2px : 1px; border-radius: 5px;
     accessible-role: button;
     accessible-label: root.item.asset_name;
@@ -328,12 +341,12 @@ component TimelineClip inherits Rectangle {
         x: 2px; y: 2px; width: max(0px, parent.width - 4px); height: parent.height - 4px;
         clip: true;
         if root.item.has_thumbnail: Image { x: 5px; y: 21px; width: min(78px, max(0px, parent.width - 10px)); height: 43px; source: root.item.thumbnail; image-fit: cover; opacity: 0.8; }
-        Text { x: 7px; y: 3px; width: max(0px, parent.width - 14px); height: 16px; text: root.item.asset_name; color: #effffb; font-size: 12px; font-weight: 600; overflow: elide; }
-        Text { x: root.item.has_thumbnail ? 88px : 7px; y: 28px; width: max(0px, parent.width - self.x - 7px); height: 32px; text: (root.item.start + (root.gesture_kind == "move" || root.gesture_kind == "slide" || root.gesture_kind == "trim-start" ? root.delta : 0)) + "f\n" + root.item.duration + (root.item.is_subtitle ? "f subtitle" : root.item.is_title ? "f title" : root.item.is_still ? "f still image" : "f source clip"); color: #c0dbd6; font-size: 11px; }
+        Text { x: 7px; y: 3px; width: max(0px, parent.width - 14px); height: 16px; text: root.item.asset_name; color: #faf5ff; font-size: 12px; font-weight: 600; overflow: elide; }
+        Text { x: root.item.has_thumbnail ? 88px : 7px; y: 28px; width: max(0px, parent.width - self.x - 7px); height: 32px; text: (root.item.start + (root.gesture_kind == "move" || root.gesture_kind == "slide" || root.gesture_kind == "trim-start" ? root.delta : 0)) + "f\n" + root.item.duration + (root.item.is_subtitle ? "f subtitle" : root.item.is_title ? "f title" : root.item.is_still ? "f still image" : "f source clip"); color: #dfd2f0; font-size: 11px; }
     }
     if root.gesture_kind == "slip" && root.delta != 0: Text {
         x: 9px; y: 48px; width: max(0px, parent.width - 18px); height: 20px;
-        color: #a0f4e5; font-size: 11px; text: "Source offset " + root.delta + "f"; overflow: elide;
+        color: #e1cbff; font-size: 11px; text: "Source offset " + root.delta + "f"; overflow: elide;
     }
     if root.error != "": Text {
         x: 9px; y: 48px; width: max(0px, parent.width - 18px); height: 20px;
@@ -367,8 +380,8 @@ component TimelineClip inherits Rectangle {
         }
         cancelled => { if root.gesture_kind != "" { root.clear_drag(); root.cancelled(); } }
     }
-    Rectangle { x: 2px; y: 24px; width: 3px; height: 24px; background: #86c9bd; border-radius: 1px; }
-    Rectangle { x: parent.width - 5px; y: 24px; width: 3px; height: 24px; background: #86c9bd; border-radius: 1px; }
+    Rectangle { x: 2px; y: 24px; width: 3px; height: 24px; background: #bd9be7; border-radius: 1px; }
+    Rectangle { x: parent.width - 5px; y: 24px; width: 3px; height: 24px; background: #bd9be7; border-radius: 1px; }
     ClipGestureArea {
         x: 0px; y: 0px;
         width: min(9px, parent.width / 3); height: parent.height; zoom: root.zoom; cancel_token: root.cancel_token; mouse-cursor: ew-resize;
@@ -403,20 +416,12 @@ component TimingField inherits VerticalLayout {
     field := LineEdit { accessible-label: root.label; enabled: root.enabled; text: root.value; placeholder-text: "Enter value"; accepted(value) => { root.committed(value); } }
 }
 
-component TrackButton inherits Rectangle {
-    in property <string> glyph;
-    in property <string> label;
-    in property <bool> enabled: true;
-    in property <bool> selected: false;
-    callback clicked();
+component TrackButton inherits ToolButton {
+    min-width: 18px;
+    max-width: 10000px;
+    height: 18px;
+    icon-size: 14px;
     horizontal-stretch: 1;
-    accessible-role: button;
-    accessible-label: root.label;
-    accessible-enabled: root.enabled;
-    accessible-action-default => { if root.enabled { root.clicked(); } }
-    background: root.selected ? #316055 : hit.has-hover ? #3b474b : transparent;
-    Text { text: root.glyph; width: parent.width; height: parent.height; color: root.enabled ? #cee1df : #657073; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-    hit := TouchArea { enabled: root.enabled; clicked => { root.clicked(); } }
 }
 
 export component EditorWindow inherits Window {
@@ -425,8 +430,11 @@ export component EditorWindow inherits Window {
     in property <bool> window-controls-on-left;
     in property <bool> mac-style-controls;
     title: "OpenQuartz Studio — " + root.project_name;
+    icon: root.mac-style-controls ? @image-url("../assets/icon.png") : @image-url("../assets/icon-windows.png");
     preferred-width: 1440px; preferred-height: 900px; min-width: 1040px; min-height: 700px;
     background: #111315; default-font-size: 12px;
+    private property <bool> compact-workspace: false;
+    changed width => { root.compact-workspace = root.width < 1250px; }
     accessible-role: main;
     accessible-label: "OpenQuartz video editor";
     accessible-description: "Project " + root.project_name + "; assets " + root.assets.length + "; clips " + root.clips.length + "; playhead " + root.selected_frame + " frames, " + root.timecode + "; " + root.project_status + (root.project_dirty ? "; Unsaved changes" : "") + "; " + root.io_status + "; " + root.monitor_status + "; " + root.hdr_monitor_status + (root.export_status == "" ? "" : "; " + root.export_status) + (root.audio_clips.length == 0 ? "" : "; audio clips " + root.audio_clips.length) + (root.audio_level == "" ? "" : "; " + root.audio_level) + (root.recovery_status == "" ? "" : "; " + root.recovery_status) + (root.selection_size > 1 ? "; " + root.selection_size + " selected" : "") + (root.proxy_status == "" ? "" : "; " + root.proxy_status) + (root.clips.length + root.audio_clips.length > 256 ? "; timeline window " + root.timeline_video_clips.length + " video · " + root.timeline_audio_clips.length + " audio" : "");
@@ -436,6 +444,7 @@ export component EditorWindow inherits Window {
     in-out property <string> project_path: "Not saved";
     in-out property <string> project_status: "Hardware GPU initializing";
     in-out property <bool> project_dirty;
+    in property <bool> project_has_path;
     in-out property <string> io_status: "";
     in property <string> export_status;
     in property <string> recovery_status;
@@ -466,6 +475,7 @@ export component EditorWindow inherits Window {
     in property <string> monitor_status;
     in property <[AssetRow]> assets;
     in property <[ClipRow]> clips;
+    in property <[ClipRow]> pipeline_tab_clips;
     in property <[DissolveRow]> dissolves;
     in property <[TrackRow]> tracks;
     in property <MonitorBox> monitor_box;
@@ -852,7 +862,7 @@ export component EditorWindow inherits Window {
     private property <color> border: #30363b;
     private property <color> text: #e7eaed;
     private property <color> secondary: #939ba2;
-    private property <color> accent: #38d9c3;
+    private property <color> accent: Theme.accent;
 
     editor_focus := FocusScope {
         width: parent.width; height: parent.height;
@@ -919,36 +929,36 @@ export component EditorWindow inherits Window {
                             toggle-maximize-window => { root.maximized = !root.maximized; }
                             close-window => { root.close(); }
                         }
-                        Rectangle {
-                            width: 28px; height: 28px; border-radius: 7px; background: root.accent;
-                            Text { width: parent.width; height: parent.height; text: "Q"; color: #111719; font-size: 18px; font-weight: 800; horizontal-alignment: center; vertical-alignment: center; }
+                        Image {
+                            width: 28px; height: 28px;
+                            source: @image-url("../assets/logo-header.svg");
+                            image-fit: contain;
                         }
-                        Text { text: "OPENQUARTZ STUDIO"; color: root.text; font-size: 18px; font-weight: 700; vertical-alignment: center; }
-                        Rectangle { width: 1px; height: 24px; background: root.border; }
-                        LineEdit { height: 32px; width: 240px; accessible-label: "Project name"; text: root.project_name; placeholder-text: "Project name"; accepted(value) => { root.rename_project(value); } }
-                        Rectangle {
-                            width: 62px; height: 30px; border-radius: 5px;
-                            background: !root.nodes_open ? #265d59 : edit_tab.has-hover ? #303438 : transparent;
-                            border-width: 1px; border-color: !root.nodes_open ? root.accent : root.border;
-                            Text { width: parent.width; height: parent.height; text: "Edit"; color: !root.nodes_open ? root.accent : root.text; font-size: 12px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
-                            edit_tab := TouchArea {
-                                accessible-role: button; accessible-label: "Edit workspace";
-                                clicked => { editor_focus.focus(); root.nodes_open = false; root.library_tab = "media"; root.nodes_workspace_changed(false); }
-                            }
-                        }
-                        Rectangle {
-                            width: 70px; height: 30px; border-radius: 5px;
-                            background: root.nodes_open ? #265d59 : nodes_tab.has-hover ? #303438 : transparent;
-                            border-width: 1px; border-color: root.nodes_open ? root.accent : root.border;
-                            Text { width: parent.width; height: parent.height; text: "Nodes"; color: root.nodes_open ? root.accent : root.text; font-size: 12px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; }
-                            nodes_tab := TouchArea {
-                                accessible-role: button; accessible-label: "Nodes workspace";
-                                clicked => { editor_focus.focus(); root.nodes_open = true; root.library_tab = "nodes"; root.nodes_workspace_changed(true); }
+                        SegmentedControl {
+                            width: 160px; horizontal-stretch: 0;
+                            options: [
+                                { key: "edit", label: "Edit", accessible-name: "Edit workspace", symbol: ActionSymbol.edit },
+                                { key: "nodes", label: "Nodes", accessible-name: "Nodes workspace", symbol: ActionSymbol.node }
+                            ];
+                            selected-key: root.nodes_open ? "nodes" : "edit";
+                            selected-description: "Current workspace";
+                            selected(key) => {
+                                editor_focus.focus();
+                                root.nodes_open = key == "nodes";
+                                root.library_tab = root.nodes_open ? "nodes" : "media";
+                                root.nodes_workspace_changed(root.nodes_open);
                             }
                         }
                         Rectangle { horizontal-stretch: 1; }
-                        ToolButton { label: "UNDO"; glyph: "↶"; active: root.can_undo; clicked => { editor_focus.focus(); root.undo(); } }
-                        ToolButton { label: "REDO"; glyph: "↷"; active: root.can_redo; clicked => { editor_focus.focus(); root.redo(); } }
+                        LineEdit {
+                            width: 220px; height: 30px;
+                            accessible-label: "Project name";
+                            accessible-description: "Rename the current project";
+                            text: root.project_name;
+                            placeholder-text: "Project name";
+                            accepted(value) => { root.rename_project(value); }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
                         if !root.window-controls-on-left: WindowControls {
                             mac-style: root.mac-style-controls; maximized: root.maximized;
                             foreground: root.text; hover-background: #303438;
@@ -963,19 +973,24 @@ export component EditorWindow inherits Window {
                 height: 44px; background: #202326;
                 HorizontalLayout {
                     padding-left: 12px; padding-right: 16px; spacing: 8px; cross-axis-alignment: center;
-                    ToolButton { label: "NEW"; glyph: "+"; clicked => { root.project_action("new"); } }
-                    ToolButton { label: "OPEN"; glyph: "▱"; clicked => { root.project_action("open"); } }
-                    ToolButton { label: "SAVE"; glyph: "▣"; clicked => { root.project_action("save"); } }
-                    ToolButton { label: "SAVE AS"; glyph: "▣+"; clicked => { root.project_action("save-as"); } }
-                    if root.previous_available: Button { text: "Previous version"; clicked => { root.project_action("recover-previous"); } }
-                    if !root.export_active: ToolButton { label: "EXPORT"; glyph: "↑"; clicked => { root.project_action("export"); } }
-                    if root.export_active: Button { text: "Cancel export"; clicked => { root.project_action("cancel-export"); } }
-                    ToolButton { label: "Render queue"; glyph: "≡"; clicked => { root.delivery_queue_open = true; } }
-                    ToolButton { label: "RELINK"; glyph: "↔"; clicked => { root.project_action("relink"); } }
-                    ToolButton { label: "IMPORT"; glyph: "↓"; clicked => { root.project_action("import"); } }
-                    ToolButton { label: "SEQUENCE"; glyph: "⚙"; clicked => { editor_focus.focus(); root.open_settings(); } }
+                    ToolButton { label: "NEW"; symbol: ActionSymbol.add; tooltip-text: "New project"; clicked => { root.project_action("new"); } }
+                    ToolButton { label: "OPEN"; symbol: ActionSymbol.folder; tooltip-text: "Open project"; clicked => { root.project_action("open"); } }
+                    ToolButton { label: "SAVE"; symbol: ActionSymbol.save; tooltip-text: "Save project"; active: root.project_dirty || !root.project_has_path; clicked => { root.project_action("save"); } }
+                    ToolButton { label: "SAVE AS"; symbol: ActionSymbol.save-as; tooltip-text: "Save project as"; clicked => { root.project_action("save-as"); } }
+                    if root.previous_available: ToolButton { label: "Previous version"; symbol: ActionSymbol.history; clicked => { root.project_action("recover-previous"); } }
+                    if !root.export_active: ToolButton { label: "EXPORT"; symbol: ActionSymbol.export-file; tooltip-text: "Export sequence"; clicked => { root.project_action("export"); } }
+                    if root.export_active: ToolButton { label: "Cancel export"; symbol: ActionSymbol.stop; clicked => { root.project_action("cancel-export"); } }
+                    ToolButton { label: "Render queue"; symbol: ActionSymbol.queue; clicked => { root.delivery_queue_open = true; } }
+                    ToolButton { label: "RELINK"; symbol: ActionSymbol.link; tooltip-text: "Relink media"; clicked => { root.project_action("relink"); } }
+                    ToolButton { label: "IMPORT"; symbol: ActionSymbol.import-file; tooltip-text: "Import media"; clicked => { root.project_action("import"); } }
+                    ToolButton { label: "SEQUENCE"; symbol: ActionSymbol.settings; tooltip-text: "Sequence settings"; clicked => { editor_focus.focus(); root.open_settings(); } }
                     Text { text: root.project_path; color: root.secondary; font-size: 11px; overflow: elide; horizontal-stretch: 1; }
-                    Text { text: root.monitor_status == "" ? (root.io_status == "" ? (root.project_dirty ? "Unsaved changes" : "All changes saved") : root.io_status) : (root.io_status == "" ? root.monitor_status : root.io_status + " · " + root.monitor_status); color: root.secondary; font-size: 11px; overflow: elide; max-width: 420px; }
+                    Text { text: root.monitor_status == "" ? root.io_status : (root.io_status == "" ? root.monitor_status : root.io_status + " · " + root.monitor_status); color: root.secondary; font-size: 11px; overflow: elide; max-width: 420px; }
+                    Rectangle { width: 1px; height: 20px; background: root.border; }
+                    ToolButton { label: "UNDO"; symbol: ActionSymbol.undo; tooltip-text: "Undo"; active: root.can_undo; clicked => { editor_focus.focus(); root.undo(); } }
+                    ToolButton { label: "REDO"; symbol: ActionSymbol.redo; tooltip-text: "Redo"; active: root.can_redo; clicked => { editor_focus.focus(); root.redo(); } }
+                    ToolButton { label: "Recover autosave"; symbol: ActionSymbol.restore; active: root.recovery_available; clicked => { root.project_action("recover-autosave"); } }
+                    ToolButton { label: "Discard autosave"; symbol: ActionSymbol.delete; active: root.recovery_available; clicked => { root.project_action("discard-autosave"); } }
                 }
             }
             HorizontalLayout {
@@ -985,40 +1000,46 @@ export component EditorWindow inherits Window {
                     VerticalLayout {
                         spacing: 0px;
                         HorizontalLayout {
-                            height: 42px; padding-left: 8px; padding-right: 8px; spacing: 4px;
-                            Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px; background: root.library_tab == "media" ? #29363a : transparent; Text { text: "Media"; width: parent.width; height: parent.height; color: root.library_tab == "media" ? root.accent : root.secondary; horizontal-alignment: center; vertical-alignment: center; } TouchArea { accessible-role: button; accessible-label: "Media library tab"; clicked => { root.library_tab = "media"; } } }
-                            Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px; background: root.library_tab == "nodes" ? #29363a : transparent; Text { text: "Nodes"; width: parent.width; height: parent.height; color: root.library_tab == "nodes" ? root.accent : root.secondary; horizontal-alignment: center; vertical-alignment: center; } TouchArea { enabled: root.nodes_open; accessible-role: button; accessible-label: "Node catalog tab"; clicked => { if root.nodes_open { root.library_tab = "nodes"; } } } }
+                            height: 42px; padding-left: 8px; padding-right: 8px; cross-axis-alignment: center;
+                            SegmentedControl {
+                                options: [
+                                    { key: "media", label: "Media", accessible-name: "Media library tab", symbol: ActionSymbol.film },
+                                    { key: "nodes", label: "Nodes", accessible-name: "Node catalog tab", symbol: ActionSymbol.node, disabled: !root.nodes_open }
+                                ];
+                                selected-key: root.library_tab;
+                                selected(key) => { root.library_tab = key; }
+                            }
                         }
                         if root.library_tab == "media": VerticalLayout {
                             spacing: 0px;
                             HorizontalLayout {
                                 height: 38px; padding-left: 12px; padding-right: 8px; spacing: 2px; cross-axis-alignment: center;
                                 Text { text: "Media library"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
-                                if root.proxy_can_prepare_batch: ToolButton { label: "Prepare all proxies"; glyph: "≡+"; active: !root.proxy_building; clicked => { root.project_action("prepare-proxy-batch"); } }
-                                if root.has_offline_assets: ToolButton { label: "Relink folder"; glyph: "▱"; clicked => { root.project_action("relink-folder"); } }
-                                ToolButton { label: "Import files"; glyph: "+"; clicked => { root.project_action("import-files"); } }
-                                ToolButton { label: "IMPORT"; glyph: "↓"; clicked => { root.project_action("import"); } }
+                                if root.proxy_can_prepare_batch: ToolButton { label: "Prepare all proxies"; symbol: ActionSymbol.proxy; active: !root.proxy_building; clicked => { root.project_action("prepare-proxy-batch"); } }
+                                if root.has_offline_assets: ToolButton { label: "Relink folder"; symbol: ActionSymbol.folder; clicked => { root.project_action("relink-folder"); } }
+                                ToolButton { label: "Import files"; symbol: ActionSymbol.track-add; clicked => { root.project_action("import-files"); } }
+                                ToolButton { label: "IMPORT"; symbol: ActionSymbol.import-file; tooltip-text: "Import media"; clicked => { root.project_action("import"); } }
                             }
                             if root.proxy_can_prepare || root.proxy_building || root.proxy_mode: VerticalLayout {
                                 padding-left: 8px; padding-right: 8px; spacing: 4px;
                                 HorizontalLayout {
                                     spacing: 4px;
-                                    Button { text: root.proxy_building ? "Cancel proxy" : "Prepare proxy"; enabled: root.proxy_building || root.proxy_can_prepare; clicked => { root.project_action(root.proxy_building ? "cancel-proxy" : "prepare-proxy"); } }
-                                    Button { text: root.proxy_mode ? "Use originals" : "Use proxies"; clicked => { root.project_action("toggle-proxies"); } }
+                                    ToolButton { label: root.proxy_building ? "Cancel proxy" : "Prepare proxy"; symbol: root.proxy_building ? ActionSymbol.stop : ActionSymbol.proxy; active: root.proxy_building || root.proxy_can_prepare; clicked => { root.project_action(root.proxy_building ? "cancel-proxy" : "prepare-proxy"); } }
+                                    ToolButton { label: root.proxy_mode ? "Use originals" : "Use proxies"; symbol: ActionSymbol.layers; selected: root.proxy_mode; clicked => { root.project_action("toggle-proxies"); } }
                                 }
                                 if root.proxy_status != "": Text { text: root.proxy_status; color: root.secondary; font-size: 11px; wrap: word-wrap; }
                             }
                             LineEdit { accessible-label: "Search media"; text <=> root.search_query; placeholder-text: "Search media"; edited(value) => { root.search_changed(value); } }
-                            if root.selected_asset_name != "": Button {
-                                text: "Transcribe selected media";
+                            if root.selected_asset_name != "": ToolButton {
+                                label: "Transcribe selected media"; symbol: ActionSymbol.mic; show-label: true;
                                 clicked => { root.project_action("transcribe"); }
                             }
-                            HorizontalLayout { height: 30px; padding-left: 14px; padding-right: 12px; Text { text: "Project media"; color: root.accent; font-size: 12px; font-weight: 600; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } Text { text: root.assets.length + " items"; color: root.secondary; font-size: 11px; vertical-alignment: center; } }
+                            HorizontalLayout { height: 30px; padding-left: 14px; padding-right: 12px; Text { text: "Project media"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } Text { text: root.assets.length + " items"; color: root.secondary; font-size: 11px; vertical-alignment: center; } }
                             ScrollView {
                                 horizontal-stretch: 1; vertical-stretch: 1;
                                 VerticalLayout {
                                     padding: 10px; spacing: 8px;
-                                    if root.assets.length == 0: Rectangle { height: 160px; background: #151719; border-radius: 8px; VerticalLayout { alignment: LayoutAlignment.center; padding: 12px; spacing: 8px; Text { text: root.search_query == "" ? "Your media library" : "No matching media"; color: root.text; font-size: 12px; font-weight: 650; horizontal-alignment: center; } Text { text: root.search_query == "" ? "Import video, audio, PNG or JPEG" : "Try another search"; color: root.secondary; font-size: 11px; horizontal-alignment: center; } Button { text: "Import media"; primary: true; clicked => { root.project_action("import"); } } } }
+                                    if root.assets.length == 0: Rectangle { height: 160px; background: #151719; border-radius: 8px; VerticalLayout { alignment: LayoutAlignment.center; padding: 12px; spacing: 8px; Text { text: root.search_query == "" ? "Your media library" : "No matching media"; color: root.text; font-size: 12px; font-weight: 650; horizontal-alignment: center; } Text { text: root.search_query == "" ? "Import video, audio, PNG or JPEG" : "Try another search"; color: root.secondary; font-size: 11px; horizontal-alignment: center; } ToolButton { label: "Import media"; symbol: ActionSymbol.import-file; show-label: true; primary: true; clicked => { root.project_action("import"); } } } }
                                     for asset in root.assets: AssetCard { asset: asset; clicked => { editor_focus.focus(); root.asset_select(asset.id); } dropped(id, x, y) => { root.asset_drop(id, x, y); }
                                     add_clicked(id) => { editor_focus.focus(); root.add_asset_to_timeline(id); } }
                                     Rectangle { vertical-stretch: 1; }
@@ -1056,8 +1077,8 @@ export component EditorWindow inherits Window {
                                 edited(value) => { root.node_search_changed(value); }
                             }
                             Text { text: "Add after selected node"; color: root.secondary; font-size: 11px; }
-                            Button {
-                                text: "Import CUBE LUT"; enabled: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty;
+                            ToolButton {
+                                label: "Import CUBE LUT"; symbol: ActionSymbol.cube; show-label: true; active: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty;
                                 clicked => { root.project_action("lut"); }
                             }
                             effects-scroll := ScrollView {
@@ -1073,7 +1094,7 @@ export component EditorWindow inherits Window {
                                     }
                                     for group in root.pipeline_effect_groups: VerticalLayout {
                                         spacing: 5px;
-                                        Text { text: group.label; color: root.accent; font-size: 10px; font-weight: 700; }
+                                        Text { text: group.label; color: Theme.accent-text; font-size: 10px; font-weight: 700; }
                                         Rectangle {
                                             height: Math.ceil(group.effects.length / 3) * 75px - 6px;
                                             for effect[index] in group.effects: NodeEffectTile {
@@ -1095,33 +1116,33 @@ export component EditorWindow inherits Window {
                     horizontal-stretch: 1; background: #101213;
                     VerticalLayout {
                         spacing: 0px;
-                        HorizontalLayout { height: 44px; padding-left: 14px; padding-right: 14px; Text { text: root.nodes_open ? (root.pipeline_monitor_label == "" ? "Final · " + root.selected_clip_name : "Node · " + root.pipeline_monitor_label) : "Preview"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; } if !root.nodes_open: ToolButton { label: "TRANSFORM"; glyph: "⛶"; selected: root.show_transform; clicked => { editor_focus.focus(); root.show_transform = !root.show_transform; root.monitor_gesture("cancel", "", 0, 0, 0); } }
-                            if root.nodes_open: Button {
-                                text: root.pipeline_monitor_label == "" ? "View selected node" : "View final output";
-                                enabled: root.pipeline_monitor_label != "" || root.pipeline_selection_count == 1;
+                        HorizontalLayout { height: 44px; padding-left: 14px; padding-right: 14px; spacing: 6px; cross-axis-alignment: center; Text { text: root.nodes_open ? (root.pipeline_monitor_label == "" ? "Final · " + root.selected_clip_name : "Node · " + root.pipeline_monitor_label) : "Preview"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; } if !root.nodes_open: ToolButton { label: "TRANSFORM"; symbol: ActionSymbol.transform; tooltip-text: "Transform clip"; selected: root.show_transform; clicked => { editor_focus.focus(); root.show_transform = !root.show_transform; root.monitor_gesture("cancel", "", 0, 0, 0); } }
+                            if root.nodes_open: ToolButton {
+                                label: root.pipeline_monitor_label == "" ? "View selected node" : "View final output"; symbol: root.pipeline_monitor_label == "" ? ActionSymbol.node : ActionSymbol.monitor;
+                                active: root.pipeline_monitor_label != "" || root.pipeline_selection_count == 1;
                                 clicked => { root.pipeline_action(root.pipeline_monitor_label == "" ? "show-selected-node" : "show-program"); }
                             }
-                            if root.nodes_open: Button {
-                                text: "Grade versions"; enabled: root.grade_available;
+                            if root.nodes_open: ToolButton {
+                                label: "Grade versions"; symbol: ActionSymbol.layers; active: root.grade_available;
                                 clicked => { root.grades_open = true; }
                             }
                             ComboBox {
-                                width: 146px; accessible-label: "Color scope";
+                                width: root.compact-workspace ? 118px : 146px; accessible-label: "Color scope";
                                 model: ["Scopes off", "RGB histogram", "Luma waveform", "RGB parade", "Vectorscope"];
                                 current-index <=> root.color_scope_mode;
                                 selected => { root.color_scope_changed(self.current-index); }
                             }
                             Text { text: root.project_data_width + " × " + root.project_data_height; color: root.secondary; font-size: 11px; vertical-alignment: center; } }
                         if root.nodes_open: HorizontalLayout {
-                            height: 29px; padding-left: 14px; padding-right: 14px; spacing: 8px;
-                            Button {
-                                text: root.pipeline_compare_active ? "Close comparison" : "Compare original";
-                                enabled: root.selected_clip_id != "";
+                            height: 34px; padding-left: 14px; padding-right: 14px; spacing: 6px; cross-axis-alignment: center;
+                            ToolButton {
+                                label: root.pipeline_compare_active ? "Close comparison" : "Compare original"; symbol: ActionSymbol.compare; selected: root.pipeline_compare_active;
+                                active: root.selected_clip_id != "";
                                 clicked => { root.pipeline_action("compare-original"); }
                             }
-                            if root.pipeline_can_bypass: Button {
-                                text: root.pipeline_node_bypassed ? "Enable node" : "Bypass node";
-                                enabled: !root.pipeline_busy && !root.pipeline_inspector_dirty;
+                            if root.pipeline_can_bypass: ToolButton {
+                                label: root.pipeline_node_bypassed ? "Enable node" : "Bypass node"; symbol: root.pipeline_node_bypassed ? ActionSymbol.eye : ActionSymbol.eye-off; selected: root.pipeline_node_bypassed;
+                                active: !root.pipeline_busy && !root.pipeline_inspector_dirty;
                                 clicked => { root.pipeline_action("bypass-selected-node"); }
                             }
                             if root.pipeline_compare_active: Text { text: "Original"; color: root.secondary; vertical-alignment: center; }
@@ -1134,9 +1155,9 @@ export component EditorWindow inherits Window {
                             if root.pipeline_compare_active: Text { text: "Graded"; color: root.secondary; vertical-alignment: center; }
                         }
                         if root.nodes_open: HorizontalLayout {
-                            height: 29px; padding-left: 14px; padding-right: 14px; spacing: 8px;
-                            Button {
-                                text: "Grab still"; enabled: root.has_monitor_image && !root.playing && !root.reference_capture_busy && !root.reference_viewing && root.reference_names.length < 8;
+                            height: 34px; padding-left: 14px; padding-right: 14px; spacing: 6px; cross-axis-alignment: center;
+                            ToolButton {
+                                label: "Grab still"; symbol: ActionSymbol.camera; active: root.has_monitor_image && !root.playing && !root.reference_capture_busy && !root.reference_viewing && root.reference_names.length < 8;
                                 clicked => { root.reference_action("grab", root.reference_index); }
                             }
                             if root.reference_names.length > 0: ComboBox {
@@ -1144,15 +1165,15 @@ export component EditorWindow inherits Window {
                                 current-index <=> root.reference_index;
                                 selected => { root.reference_action("select", self.current-index); }
                             }
-                            if root.reference_names.length > 0: Button {
-                                text: root.reference_viewing ? "Show live" : "Show still";
+                            if root.reference_names.length > 0: ToolButton {
+                                label: root.reference_viewing ? "Show live" : "Show still"; symbol: root.reference_viewing ? ActionSymbol.monitor : ActionSymbol.image; selected: root.reference_viewing;
                                 clicked => { root.reference_action("view", root.reference_index); }
                             }
-                            if root.reference_names.length > 0: Button {
-                                text: "Remove still"; clicked => { root.reference_action("remove", root.reference_index); }
+                            if root.reference_names.length > 0: ToolButton {
+                                label: "Remove still"; symbol: ActionSymbol.delete; clicked => { root.reference_action("remove", root.reference_index); }
                             }
-                            if root.reference_names.length > 0: Button {
-                                text: "Match shot"; enabled: root.selected_clip_writable && !root.reference_viewing && !root.playing;
+                            if root.reference_names.length > 0: ToolButton {
+                                label: "Match shot"; symbol: ActionSymbol.match; active: root.selected_clip_writable && !root.reference_viewing && !root.playing;
                                 clicked => { root.reference_action("match", root.reference_index); }
                             }
                         }
@@ -1184,7 +1205,7 @@ export component EditorWindow inherits Window {
                                 }
                             }
 
-                            if !root.has_monitor_image: VerticalLayout { alignment: LayoutAlignment.center; spacing: 8px; Text { text: "◩"; color: #444b50; font-size: 36px; horizontal-alignment: center; } Text { text: "Add media to the timeline"; color: #7c848a; font-size: 12px; horizontal-alignment: center; } }
+                            if !root.has_monitor_image: VerticalLayout { alignment: LayoutAlignment.center; cross-axis-alignment: center; spacing: 8px; ActionIcon { symbol: ActionSymbol.film; width: 36px; height: 36px; stroke: #444b50; } Text { text: "Add media to the timeline"; color: #7c848a; font-size: 12px; horizontal-alignment: center; } }
                             if !root.nodes_open && root.show_transform && root.monitor_box.visible: Path {
                                 width: parent.width; height: parent.height;
                                 stroke: root.monitor_box.locked ? #a8aeb4 : root.accent;
@@ -1201,7 +1222,7 @@ export component EditorWindow inherits Window {
                                 width: 20px; height: 20px;
                                 accessible-role: button;
                                 accessible-label: handle == 4 ? "Rotate clip" : handle == 0 ? "Resize top left" : handle == 1 ? "Resize top right" : handle == 2 ? "Resize bottom right" : "Resize bottom left";
-                                Rectangle { x: 6px; y: 6px; width: 8px; height: 8px; border-radius: handle == 4 ? 4px : 1px; background: root.accent; border-width: 1px; border-color: #102622; }
+                                Rectangle { x: 6px; y: 6px; width: 8px; height: 8px; border-radius: handle == 4 ? 4px : 1px; background: root.accent; border-width: 1px; border-color: #281c3a; }
                             }
                             // Capture on the stationary viewport. The grips themselves
                             // move while the same pointer capture is active.
@@ -1237,18 +1258,18 @@ export component EditorWindow inherits Window {
                             padding-left: 8px; padding-right: 8px; spacing: 4px;
                             HorizontalLayout {
                                 spacing: 4px;
-                                ToolButton { label: "Previous source frame"; glyph: "|◀"; active: root.source_can_previous; clicked => { root.source_action("previous", ""); } }
+                                ToolButton { label: "Previous source frame"; symbol: ActionSymbol.previous; active: root.source_can_previous; clicked => { root.source_action("previous", ""); } }
                                 LineEdit {
                                     in property <string> cursor_text: root.source_frame;
                                     width: 63px; text: self.cursor_text; accessible-label: "Source monitor frame";
                                     changed cursor_text => { self.text = self.cursor_text; }
                                     accepted(value) => { root.source_action("seek", value); }
                                 }
-                                ToolButton { label: "Next source frame"; glyph: "▶|"; active: root.source_can_next; clicked => { root.source_action("next", ""); } }
-                                Button { text: "Mark In"; clicked => { root.source_action("in", ""); } }
-                                Button { text: "Mark Out"; clicked => { root.source_action("out", ""); } }
-                                Button { text: "Clear marks"; enabled: root.source_marks_set; clicked => { root.source_action("clear", ""); } }
-                                Button { text: "Set camera sync point"; clicked => { root.project_action("register-camera"); } }
+                                ToolButton { label: "Next source frame"; symbol: ActionSymbol.next; active: root.source_can_next; clicked => { root.source_action("next", ""); } }
+                                ToolButton { label: "Mark In"; symbol: ActionSymbol.mark-in; clicked => { root.source_action("in", ""); } }
+                                ToolButton { label: "Mark Out"; symbol: ActionSymbol.mark-out; clicked => { root.source_action("out", ""); } }
+                                ToolButton { label: "Clear marks"; symbol: ActionSymbol.close; active: root.source_marks_set; clicked => { root.source_action("clear", ""); } }
+                                ToolButton { label: "Set camera sync point"; symbol: ActionSymbol.target; clicked => { root.project_action("register-camera"); } }
                                 Rectangle { horizontal-stretch: 1; }
                             }
                             HorizontalLayout {
@@ -1266,40 +1287,60 @@ export component EditorWindow inherits Window {
                         if root.multicam_open && !root.source_visible && root.camera_angles.length > 1: HorizontalLayout {
                             padding: 4px; spacing: 4px;
                             for angle[index] in root.camera_angles: VerticalLayout {
-                                Button { text: "Cut to " + angle; clicked => { editor_focus.focus(); root.camera_chosen(index, true); } }
-                                Button { text: "Replace with " + angle; clicked => { editor_focus.focus(); root.camera_chosen(index, false); } }
+                                ToolButton { label: "Cut to " + angle; symbol: ActionSymbol.split; show-label: true; clicked => { editor_focus.focus(); root.camera_chosen(index, true); } }
+                                ToolButton { label: "Replace with " + angle; symbol: ActionSymbol.overwrite; show-label: true; clicked => { editor_focus.focus(); root.camera_chosen(index, false); } }
                             }
-                            Button { text: "Close angles"; clicked => { editor_focus.focus(); root.project_action("camera-monitor"); } }
+                            ToolButton { label: "Close angles"; symbol: ActionSymbol.close; clicked => { editor_focus.focus(); root.project_action("camera-monitor"); } }
                         }
                         Text { text: root.playback_summary; accessible-role: AccessibleRole.text; accessible-label: root.playback_metrics; height: 18px; color: root.secondary; font-size: 10px; overflow: elide; }
-                        Rectangle {
+                        transport := Rectangle {
                             height: 52px; background: #191c1e;
+                            min-width: 0px; preferred-width: 0px; max-width: 10000px;
+                            private property <bool> show-duration: true;
+                            changed width => { self.show-duration = self.width >= 350px; }
                             HorizontalLayout {
-                                x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
-                                width: 112px; height: 32px; spacing: 8px; cross-axis-alignment: center;
-                                ToolButton { label: "PREVIOUS"; glyph: "|◀"; clicked => { editor_focus.focus(); root.step_frame(-1); } }
-                                ToolButton { label: root.playing ? "PAUSE" : "PLAY"; glyph: root.playing ? "Ⅱ" : "▶"; selected: root.playing; clicked => { editor_focus.focus(); root.playback(root.playing ? "pause" : "play"); } }
-                                ToolButton { label: "NEXT"; glyph: "▶|"; clicked => { editor_focus.focus(); root.step_frame(1); } }
-                            }
-                            HorizontalLayout {
-                                x: parent.width - self.width - 12px; y: (parent.height - self.height) / 2;
-                                width: 194px; height: 32px; spacing: 6px;
-                                Text { text: root.timecode; accessible-label: "Current timecode"; color: root.accent; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                                Text { text: "/ " + root.sequence_timecode; accessible-label: "Sequence timecode"; color: root.secondary; font-size: 12px; vertical-alignment: center; }
+                                width: parent.width; height: parent.height;
+                                padding-left: 8px; padding-right: 12px;
+                                spacing: 6px; cross-axis-alignment: center;
+                                Rectangle { horizontal-stretch: 1; }
+                                ToolButton { label: "PREVIOUS"; symbol: ActionSymbol.previous; tooltip-text: "Previous frame"; clicked => { editor_focus.focus(); root.step_frame(-1); } }
+                                ToolButton { label: root.playing ? "PAUSE" : "PLAY"; symbol: root.playing ? ActionSymbol.pause : ActionSymbol.play; tooltip-text: root.playing ? "Pause" : "Play"; selected: root.playing; clicked => { editor_focus.focus(); root.playback(root.playing ? "pause" : "play"); } }
+                                ToolButton { label: "NEXT"; symbol: ActionSymbol.next; tooltip-text: "Next frame"; clicked => { editor_focus.focus(); root.step_frame(1); } }
+                                Rectangle { horizontal-stretch: 1; }
+                                Text { text: root.timecode; accessible-label: "Current timecode"; color: Theme.accent-text; font-size: 12px; vertical-alignment: center; }
+                                if transport.show-duration: Text { text: "/ " + root.sequence_timecode; accessible-label: "Sequence timecode"; color: root.secondary; font-size: 11px; vertical-alignment: center; }
                             }
                         }
                     }
                 }
                 if root.nodes_open: Rectangle {
-                    horizontal-stretch: 1; min-width: 420px; background: root.panel;
+                    horizontal-stretch: 1; min-width: root.compact-workspace ? 224px : 420px; background: root.panel;
                     VerticalLayout {
                         spacing: 0px;
-                        VerticalLayout {
-                            height: 78px; spacing: 0px;
-                            HorizontalLayout { height: 36px; padding-left: 14px; padding-right: 14px; spacing: 10px; Text { text: "Clip pipeline"; color: root.accent; font-size: 12px; font-weight: 600; vertical-alignment: center; } Text { text: root.selected_clip_id == "" ? "Select a timeline clip" : root.selected_clip_name; color: root.secondary; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; } }
-                            ScrollView { height: 42px; vertical-scrollbar-policy: always-off; HorizontalLayout { padding-left: 10px; padding-right: 10px; spacing: 6px;
-                                for clip in root.clips: Rectangle { visible: !clip.is_title; width: 142px; height: 34px; border-radius: 4px; background: clip.selected ? #265d59 : #252a2f; border-width: 1px; border-color: clip.selected ? root.accent : root.border; if clip.has_thumbnail: Image { x: 3px; y: 3px; width: 44px; height: 28px; source: clip.thumbnail; image-fit: cover; } Text { x: clip.has_thumbnail ? 51px : 8px; width: parent.width - self.x - 5px; height: parent.height; text: clip.asset_name; color: clip.online ? root.text : #ffaaaa; font-size: 10px; overflow: elide; vertical-alignment: center; } TouchArea { accessible-role: button; accessible-label: "Pipeline for " + clip.asset_name; clicked => { editor_focus.focus(); root.clip_select(clip.id); } } }
-                            } }
+                        HorizontalLayout {
+                            height: 36px; padding-left: 14px; padding-right: 14px; spacing: 10px;
+                            Text { text: "Clip pipeline"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; }
+                            Text { text: root.selected_clip_id == "" ? "Select a timeline clip" : root.selected_clip_name; color: root.secondary; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
+                        }
+                        if root.pipeline_tab_clips.length > 0: clip-tabs-view := ScrollView {
+                            height: min(116px, clip-tabs.height + 6px);
+                            horizontal-scrollbar-policy: always-off;
+                            content-width: self.visible-width;
+                            content-height: clip-tabs.height + 6px;
+                            clip-tabs := SegmentedControl {
+                                x: 10px; width: max(34px, clip-tabs-view.width - 24px);
+                                option-count: root.pipeline_tab_clips.length;
+                                selected-key: root.selected_clip_id;
+                                dynamic-option(index) => {
+                                    let clip = root.pipeline_tab_clips[index];
+                                    return {
+                                        key: clip.id, label: clip.asset_name, accessible-name: "Pipeline for " + clip.asset_name,
+                                        symbol: ActionSymbol.film, thumbnail: clip.thumbnail, has-thumbnail: clip.has_thumbnail,
+                                        tint: clip.online ? transparent : #ffaaaa,
+                                    };
+                                }
+                                selected(key) => { editor_focus.focus(); root.clip_select(key); }
+                            }
                         }
                         GraphView {
                             horizontal-stretch: 1; vertical-stretch: 1;
@@ -1337,12 +1378,12 @@ export component EditorWindow inherits Window {
                     }
                 }
                 Rectangle {
-                    width: 280px; background: root.panel;
+                    width: root.compact-workspace ? 244px : 280px; background: root.panel;
                     VerticalLayout {
                         spacing: 0px;
                         if root.nodes_open: VerticalLayout {
                             spacing: 0px;
-                            HorizontalLayout { height: 44px; padding-left: 14px; Text { text: "Node inspector"; color: root.accent; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
+                            HorizontalLayout { height: 44px; padding-left: 14px; Text { text: "Node inspector"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
                             Inspector {
                                 horizontal-stretch: 1; vertical-stretch: 1;
                                 node-id: root.pipeline_node_id; has-selection: root.pipeline_has_selection; node-type: root.pipeline_node_type; selection-message: root.pipeline_selection_message;
@@ -1374,7 +1415,7 @@ export component EditorWindow inherits Window {
                             if root.pipeline_error != "": Text { text: root.pipeline_error; color: #ffaaaa; font-size: 11px; wrap: word-wrap; }
                         }
                         if !root.nodes_open: VerticalLayout {
-                            HorizontalLayout { height: 44px; padding-left: 16px; Text { text: "Clip properties"; color: root.accent; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
+                            HorizontalLayout { height: 44px; padding-left: 16px; Text { text: "Clip properties"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
                             if root.audio_clip_id != "": audio_properties := ScrollView { horizontal-stretch: 1; vertical-stretch: 1; VerticalLayout { padding: 14px; spacing: 12px;
                                 Text { text: root.audio_clip_name; color: root.text; wrap: word-wrap; }
                                 if root.audio_clip_speed != "100": Text { text: root.audio_clip_speed + "% speed"; color: root.secondary; font-size: 11px; }
@@ -1385,8 +1426,8 @@ export component EditorWindow inherits Window {
                                 TimingField { label: "Audio clip gain (%)"; value: root.audio_clip_gain; enabled: !root.audio_clip_locked; committed(value) => { root.audio_clip_action(root.audio_clip_id, "gain", value); } }
                                 if !root.audio_clip_linked: TimingField { label: "Audio fade in (samples)"; value: root.audio_fade_in; enabled: !root.audio_clip_locked; committed(value) => { root.audio_clip_action(root.audio_clip_id, "fade-in", value); } }
                                 if !root.audio_clip_linked: TimingField { label: "Audio fade out (samples)"; value: root.audio_fade_out; enabled: !root.audio_clip_locked; committed(value) => { root.audio_clip_action(root.audio_clip_id, "fade-out", value); } }
-                                if root.audio_clip_linked: Button { text: "Unlink audio"; enabled: !root.audio_clip_locked; clicked => { root.audio_clip_action(root.audio_clip_id, "unlink", ""); } }
-                                if !root.audio_clip_linked: Button { text: "Delete audio clip"; enabled: !root.audio_clip_locked; clicked => { root.audio_clip_action(root.audio_clip_id, "delete", ""); } }
+                                if root.audio_clip_linked: ToolButton { label: "Unlink audio"; symbol: ActionSymbol.unlink; show-label: true; active: !root.audio_clip_locked; clicked => { root.audio_clip_action(root.audio_clip_id, "unlink", ""); } }
+                                if !root.audio_clip_linked: ToolButton { label: "Delete audio clip"; symbol: ActionSymbol.delete; show-label: true; active: !root.audio_clip_locked; clicked => { root.audio_clip_action(root.audio_clip_id, "delete", ""); } }
                                 TimingField {
                                     label: "Audio crossfade (samples)"; value: root.audio_crossfade_length;
                                     enabled: !root.audio_clip_locked;
@@ -1414,9 +1455,9 @@ export component EditorWindow inherits Window {
                                         height: 72px; wrap: word-wrap;
                                         enabled: root.selected_clip_writable;
                                     }
-                                    Button {
-                                        text: "Apply subtitle text";
-                                        enabled: root.selected_clip_writable && subtitle_text.text != root.selected_title_text;
+                                    ToolButton {
+                                        label: "Apply subtitle text"; symbol: ActionSymbol.check; show-label: true;
+                                        active: root.selected_clip_writable && subtitle_text.text != root.selected_title_text;
                                         clicked => { root.clip_timing_changed("subtitle-text", subtitle_text.text); }
                                     }
                                 }
@@ -1430,37 +1471,37 @@ export component EditorWindow inherits Window {
                                     spacing: 8px;
                                     HorizontalLayout {
                                         height: 28px;
-                                        Text { text: "Transform"; color: root.accent; vertical-alignment: center; }
-                                        Button { text: "Reset"; enabled: root.selected_clip_writable; clicked => { root.transform_field("reset", ""); } }
+                                        Text { text: "Transform"; color: Theme.accent-text; vertical-alignment: center; }
+                                        ToolButton { label: "Reset"; symbol: ActionSymbol.history; show-label: true; active: root.selected_clip_writable; clicked => { root.transform_field("reset", ""); } }
                                     }
                                     TimingField { label: "Position X (px)"; value: root.selected_clip_x; enabled: root.spatial_editable; committed(value) => { root.transform_field("x", value); } }
                                     TimingField { label: "Position Y (px)"; value: root.selected_clip_y; enabled: root.spatial_editable; committed(value) => { root.transform_field("y", value); } }
                                     TimingField { label: "Scale"; value: root.selected_clip_scale; enabled: root.spatial_editable; committed(value) => { root.transform_field("scale", value); } }
                                     TimingField { label: "Rotation (°)"; value: root.selected_clip_rotation; enabled: root.spatial_editable; committed(value) => { root.transform_field("rotation", value); } }
-                                    Button {
-                                        text: root.on_spatial_key ? "Remove transform keyframe" : "Add transform keyframe";
-                                        enabled: root.spatial_key_enabled;
+                                    ToolButton {
+                                        label: root.on_spatial_key ? "Remove transform keyframe" : "Add transform keyframe"; symbol: root.on_spatial_key ? ActionSymbol.keyframe-remove : ActionSymbol.keyframe-add; show-label: true;
+                                        active: root.spatial_key_enabled;
                                         clicked => { root.project_action("toggle-transform-key"); }
                                     }
-                                    if root.on_spatial_key: Button {
-                                        text: root.eased_spatial_key ? "Use linear transform interpolation" : "Ease to next transform key";
-                                        enabled: root.spatial_key_enabled;
+                                    if root.on_spatial_key: ToolButton {
+                                        label: root.eased_spatial_key ? "Use linear transform interpolation" : "Ease to next transform key"; symbol: ActionSymbol.ease; show-label: true;
+                                        active: root.spatial_key_enabled;
                                         clicked => { root.project_action("ease-transform-key"); }
                                     }
                                     TimingField { label: "Opacity (%)"; value: root.selected_clip_opacity; enabled: root.opacity_editable; committed(value) => { root.transform_field("opacity", value); } }
-                                    if !root.selected_clip_uses_sequence_timing: Button { text: root.on_opacity_key ? "Remove opacity keyframe" : "Add opacity keyframe"; enabled: root.opacity_key_enabled; clicked => { root.project_action(root.on_opacity_key ? "remove-opacity-key" : "add-opacity-key"); } }
+                                    if !root.selected_clip_uses_sequence_timing: ToolButton { label: root.on_opacity_key ? "Remove opacity keyframe" : "Add opacity keyframe"; symbol: root.on_opacity_key ? ActionSymbol.keyframe-remove : ActionSymbol.keyframe-add; show-label: true; active: root.opacity_key_enabled; clicked => { root.project_action(root.on_opacity_key ? "remove-opacity-key" : "add-opacity-key"); } }
                                     TimingField { label: "Exposure (EV)"; value: root.selected_clip_exposure; enabled: root.selected_clip_writable; committed(value) => { root.transform_field("exposure", value); } }
-                                    Text { text: "Crop"; color: root.accent; }
+                                    Text { text: "Crop"; color: Theme.accent-text; }
                                     TimingField { label: "Crop left (%)"; value: root.crop_left; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-left", value); } }
                                     TimingField { label: "Crop top (%)"; value: root.crop_top; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-top", value); } }
                                     TimingField { label: "Crop right (%)"; value: root.crop_right; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-right", value); } }
                                     TimingField { label: "Crop bottom (%)"; value: root.crop_bottom; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-bottom", value); } }
-                                    Button {
-                                        text: root.on_crop_key ? "Remove crop keyframe" : "Add crop keyframe";
-                                        enabled: root.spatial_key_enabled;
+                                    ToolButton {
+                                        label: root.on_crop_key ? "Remove crop keyframe" : "Add crop keyframe"; symbol: root.on_crop_key ? ActionSymbol.keyframe-remove : ActionSymbol.keyframe-add; show-label: true;
+                                        active: root.spatial_key_enabled;
                                         clicked => { root.project_action("toggle-crop-key"); }
                                     }
-                                    Text { text: "Mask"; color: root.accent; }
+                                    Text { text: "Mask"; color: Theme.accent-text; }
                                     ComboBox {
                                         accessible-label: "Mask shape"; model: ["None", "Rectangle", "Ellipse", "Polygon"];
                                         current-index <=> root.mask_shape; enabled: root.selected_clip_writable;
@@ -1477,17 +1518,17 @@ export component EditorWindow inherits Window {
                                             label: "Polygon vertices (x,y %)"; value: root.mask_polygon; enabled: root.selected_clip_writable;
                                             committed(value) => { root.mask_field("polygon", value); }
                                         }
-                                        if root.can_track_mask && !root.mask_tracking_busy: Button {
-                                            text: "Track scale and rotation"; enabled: root.selected_clip_writable;
+                                        if root.can_track_mask && !root.mask_tracking_busy: ToolButton {
+                                            label: "Track scale and rotation"; symbol: ActionSymbol.transform; show-label: true; active: root.selected_clip_writable;
                                             clicked => { root.project_action("track-mask-similarity"); }
                                         }
-                                        if root.can_track_mask || root.mask_tracking_busy: Button {
-                                            text: root.mask_tracking_busy ? "Cancel mask tracking" : "Track mask forward";
-                                            enabled: root.mask_tracking_busy || root.selected_clip_writable;
+                                        if root.can_track_mask || root.mask_tracking_busy: ToolButton {
+                                            label: root.mask_tracking_busy ? "Cancel mask tracking" : "Track mask forward"; symbol: root.mask_tracking_busy ? ActionSymbol.stop : ActionSymbol.target; show-label: true;
+                                            active: root.mask_tracking_busy || root.selected_clip_writable;
                                             clicked => { root.project_action(root.mask_tracking_busy ? "cancel-mask-tracking" : "track-mask"); }
                                         }
-                                        if root.has_mask_tracking: Button {
-                                            text: "Clear mask tracking"; enabled: root.selected_clip_writable && !root.mask_tracking_busy;
+                                        if root.has_mask_tracking: ToolButton {
+                                            label: "Clear mask tracking"; symbol: ActionSymbol.close; show-label: true; active: root.selected_clip_writable && !root.mask_tracking_busy;
                                             clicked => { root.project_action("clear-mask-tracking"); }
                                         }
                                     }
@@ -1504,41 +1545,58 @@ export component EditorWindow inherits Window {
                 height: 280px; background: #191c1e;
                 VerticalLayout {
                     spacing: 0px;
-                    HorizontalLayout {
-                        height: 44px; padding-left: 16px; padding-right: 16px; spacing: 8px; cross-axis-alignment: center;
-                        Text { text: "Timeline"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; }
-                        Rectangle { width: 1px; height: 20px; background: root.border; }
-                        ToolButton { label: "ADD TRACK"; glyph: "≡+"; clicked => { editor_focus.focus(); root.track_action("", "add", ""); } }
-                        Rectangle { horizontal-stretch: 1; }
-                        ToolButton { label: "ADD CLIP"; glyph: "+"; active: root.assets.length > 0; clicked => { editor_focus.focus(); root.add_to_timeline(); } }
-                        Button { text: "Add title"; clicked => { editor_focus.focus(); root.project_action("add-title"); } }
-                        Button { text: "Add subtitle"; clicked => { editor_focus.focus(); root.project_action("add-subtitle"); } }
-                        Button { text: "Import SRT"; clicked => { editor_focus.focus(); root.project_action("import-srt"); } }
-                        Button { text: "Export SRT"; clicked => { editor_focus.focus(); root.project_action("export-srt"); } }
-                        Button { text: "Insert"; enabled: root.can_place_visual; clicked => { editor_focus.focus(); root.project_action("insert"); } }
-                        Button { text: "Overwrite"; enabled: root.can_place_visual; clicked => { editor_focus.focus(); root.project_action("overwrite"); } }
-                        ToolButton { label: "SPLIT"; glyph: "✂"; active: root.selected_clip_id != "" || (root.audio_clip_id != "" && !root.audio_clip_locked && !root.audio_clip_linked); clicked => { editor_focus.focus(); root.split_clip(); } }
-                        ToolButton { label: "DELETE"; glyph: "⌫"; active: root.selected_clip_id != ""; clicked => { editor_focus.focus(); root.lift_clip(); } }
-                        Button { text: "Ripple delete"; enabled: root.selected_clip_writable; clicked => { editor_focus.focus(); root.project_action("ripple-delete"); } }
-                        Rectangle { width: 1px; height: 20px; background: root.border; }
-                        ToolButton {
-                            label: "Toggle timeline snapping"; glyph: "magnet"; selected: root.timeline_snap_enabled;
-                            accessible-description: root.timeline_snap_enabled ? "Snapping enabled" : "Snapping disabled";
-                            tooltip-text: root.timeline_snap_enabled ? "Disable timeline snapping" : "Enable timeline snapping";
-                            clicked => { editor_focus.focus(); root.timeline_snap_enabled = !root.timeline_snap_enabled; }
+                    timeline-tools := Rectangle {
+                        height: 44px;
+                        min-width: 0px; preferred-width: 0px; max-width: 10000px;
+                        horizontal-stretch: 1;
+                        private property <bool> show-labels: true;
+                        changed width => { self.show-labels = self.width >= 1320px; }
+                        HorizontalLayout {
+                            width: parent.width; height: parent.height; padding-left: 12px; padding-right: 12px; spacing: timeline-tools.show-labels ? 8px : 4px; cross-axis-alignment: center;
+                            Text { text: "Timeline"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; }
+                            Rectangle { width: 1px; height: 20px; background: root.border; }
+                            ToolButton { label: "ADD TRACK"; symbol: ActionSymbol.track-add; tooltip-text: "Add video track"; clicked => { editor_focus.focus(); root.track_action("", "add", ""); } }
+                            Rectangle { horizontal-stretch: 1; }
+                            ToolButton { label: "ADD CLIP"; symbol: ActionSymbol.add; tooltip-text: "Add selected media to timeline"; active: root.assets.length > 0; clicked => { editor_focus.focus(); root.add_to_timeline(); } }
+                            ToolButton { label: "Add title"; symbol: ActionSymbol.title; show-label: timeline-tools.show-labels; clicked => { editor_focus.focus(); root.project_action("add-title"); } }
+                            ToolButton { label: "Add subtitle"; symbol: ActionSymbol.subtitle; show-label: timeline-tools.show-labels; clicked => { editor_focus.focus(); root.project_action("add-subtitle"); } }
+                            ToolButton { label: "Import SRT"; symbol: ActionSymbol.subtitle-import; show-label: timeline-tools.show-labels; clicked => { editor_focus.focus(); root.project_action("import-srt"); } }
+                            ToolButton { label: "Export SRT"; symbol: ActionSymbol.subtitle-export; show-label: timeline-tools.show-labels; clicked => { editor_focus.focus(); root.project_action("export-srt"); } }
+                            ToolButton { label: "Insert"; symbol: ActionSymbol.insert; show-label: timeline-tools.show-labels; active: root.can_place_visual; clicked => { editor_focus.focus(); root.project_action("insert"); } }
+                            ToolButton { label: "Overwrite"; symbol: ActionSymbol.overwrite; show-label: timeline-tools.show-labels; active: root.can_place_visual; clicked => { editor_focus.focus(); root.project_action("overwrite"); } }
+                            ToolButton { label: "SPLIT"; symbol: ActionSymbol.split; active: root.selected_clip_id != "" || (root.audio_clip_id != "" && !root.audio_clip_locked && !root.audio_clip_linked); clicked => { editor_focus.focus(); root.split_clip(); } }
+                            ToolButton { label: "DELETE"; symbol: ActionSymbol.delete; tooltip-text: "Lift clip"; active: root.selected_clip_id != ""; clicked => { editor_focus.focus(); root.lift_clip(); } }
+                            ToolButton { label: "Ripple delete"; symbol: ActionSymbol.ripple-delete; show-label: timeline-tools.show-labels; active: root.selected_clip_writable; clicked => { editor_focus.focus(); root.project_action("ripple-delete"); } }
+                            Rectangle { width: 1px; height: 20px; background: root.border; }
+                            ToolButton {
+                                label: "Toggle timeline snapping"; symbol: ActionSymbol.magnet; selected: root.timeline_snap_enabled;
+                                accessible-description: root.timeline_snap_enabled ? "Snapping enabled" : "Snapping disabled";
+                                tooltip-text: root.timeline_snap_enabled ? "Disable timeline snapping" : "Enable timeline snapping";
+                                clicked => { editor_focus.focus(); root.timeline_snap_enabled = !root.timeline_snap_enabled; }
+                            }
+                            ToolButton { label: "FIT TIMELINE"; symbol: ActionSymbol.fit; tooltip-text: "Fit entire sequence"; active: root.sequence_duration > 0; clicked => { root.fit_timeline(); } }
+                            ToolButton { label: "ZOOM OUT"; symbol: ActionSymbol.minus; tooltip-text: "Zoom out"; active: root.timeline_zoom > 0.0001; clicked => { root.set_zoom(root.timeline_zoom > 4 ? root.timeline_zoom - 2 : root.timeline_zoom / 2); } }
+                            Text { text: root.timeline_zoom >= 1 ? Math.round(root.timeline_zoom * 100) / 100 + " px/f" : Math.round(100 / root.timeline_zoom) / 100 + " f/px"; width: 88px; color: root.secondary; font-size: 11px; vertical-alignment: center; horizontal-alignment: center; }
+                            ToolButton { label: "ZOOM IN"; symbol: ActionSymbol.add; tooltip-text: "Zoom in"; active: root.timeline_zoom < 48; clicked => { root.set_zoom(root.timeline_zoom >= 4 ? root.timeline_zoom + 2 : root.timeline_zoom * 2); } }
                         }
-                        ToolButton { label: "FIT TIMELINE"; glyph: "fit"; tooltip-text: "Fit entire sequence"; active: root.sequence_duration > 0; clicked => { root.fit_timeline(); } }
-                        ToolButton { label: "ZOOM OUT"; glyph: "−"; active: root.timeline_zoom > 0.0001; clicked => { root.set_zoom(root.timeline_zoom > 4 ? root.timeline_zoom - 2 : root.timeline_zoom / 2); } }
-                        Text { text: root.timeline_zoom >= 1 ? Math.round(root.timeline_zoom * 100) / 100 + " px/f" : Math.round(100 / root.timeline_zoom) / 100 + " f/px"; width: 88px; color: root.secondary; font-size: 11px; vertical-alignment: center; horizontal-alignment: center; }
-                        ToolButton { label: "ZOOM IN"; glyph: "+"; active: root.timeline_zoom < 48; clicked => { root.set_zoom(root.timeline_zoom >= 4 ? root.timeline_zoom + 2 : root.timeline_zoom * 2); } }
                     }
                     HorizontalLayout {
                         height: 44px; spacing: 0px;
                         Rectangle { width: 112px; background: #1b1e21;
                             HorizontalLayout {
-                                padding: 3px; spacing: 4px;
-                                ToolButton { label: "SLIP"; glyph: "⇄"; tooltip-text: "Slip the source interval"; selected: root.timeline_edit_mode == "slip"; clicked => { editor_focus.focus(); root.timeline_edit_mode = self.selected ? "" : "slip"; } }
-                                ToolButton { label: "SLIDE"; glyph: "↔"; tooltip-text: "Slide between adjacent clips"; selected: root.timeline_edit_mode == "slide"; clicked => { editor_focus.focus(); root.timeline_edit_mode = self.selected ? "" : "slide"; } }
+                                padding: 3px; cross-axis-alignment: center;
+                                SegmentedControl {
+                                    options: [
+                                        { key: "", label: "Move", accessible-name: "Move clips", symbol: ActionSymbol.move },
+                                        { key: "slip", label: "Slip", accessible-name: "SLIP", symbol: ActionSymbol.slip },
+                                        { key: "slide", label: "Slide", accessible-name: "SLIDE", symbol: ActionSymbol.slide }
+                                    ];
+                                    selected-key: root.timeline_edit_mode;
+                                    selected(key) => {
+                                        editor_focus.focus();
+                                        root.timeline_edit_mode = key == root.timeline_edit_mode ? "" : key;
+                                    }
+                                }
                             }
                         }
                         Rectangle {
@@ -1573,14 +1631,18 @@ export component EditorWindow inherits Window {
                             width: 112px; background: #1b1e21; clip: true;
                             for track[index] in root.tracks: Rectangle {
                                 y: index * 84px + timeline_scroll.content-y; height: 84px; width: parent.width;
-                                background: track.selected ? #252f31 : #1b1e21;
+                                background: track.selected ? #332b40 : #1b1e21;
                                 border-width: 1px; border-color: root.border;
                                 TouchArea { clicked => { editor_focus.focus(); root.track_action(track.id, "select", ""); } }
                                 LineEdit { x: 26px; y: 8px; width: parent.width - 30px; height: 26px;
                                     text: track.name; enabled: !track.locked; accessible-label: "Name of " + track.name;
                                     accepted(value) => { root.track_action(track.id, "rename", value); }
                                 }
-                                Text { x: 2px; y: 7px; width: 22px; height: 26px; text: "⠿"; color: track.locked ? root.secondary : root.accent; horizontal-alignment: center; vertical-alignment: center; }
+                                ActionIcon {
+                                        x: 6px; y: 13px; width: 14px; height: 14px;
+                                        symbol: ActionSymbol.grip;
+                                        stroke: track.locked ? root.secondary : Theme.accent-text;
+                                    }
                                 grip := TouchArea {
                                     x: 2px; y: 7px; width: 22px; height: 26px;
                                     enabled: !track.locked; mouse-cursor: grab;
@@ -1624,14 +1686,14 @@ export component EditorWindow inherits Window {
                                 }
                                 HorizontalLayout {
                                     y: 40px; x: 3px; width: parent.width - 6px; height: 27px; spacing: 2px;
-                                    TrackButton { glyph: track.visible ? "●" : "○"; label: (track.visible ? "Hide " : "Show ") + track.name; clicked => { root.track_action(track.id, "visible", ""); } }
-                                    TrackButton { glyph: track.locked ? "◆" : "◇"; label: (track.locked ? "Unlock " : "Lock ") + track.name; clicked => { root.track_action(track.id, "lock", ""); } }
-                                    TrackButton { glyph: "↑"; label: "Move " + track.name + " up"; enabled: index > 0 && !track.locked; clicked => { root.track_action(track.id, "up", ""); } }
-                                    TrackButton { glyph: "↓"; label: "Move " + track.name + " down"; enabled: index + 1 < root.tracks.length && !track.locked; clicked => { root.track_action(track.id, "down", ""); } }
-                                    TrackButton { glyph: "×"; label: "Delete empty " + track.name; enabled: root.tracks.length > 1 && !track.locked; clicked => { root.track_action(track.id, "delete", ""); } }
+                                    TrackButton { symbol: track.visible ? ActionSymbol.eye : ActionSymbol.eye-off; label: (track.visible ? "Hide " : "Show ") + track.name; clicked => { root.track_action(track.id, "visible", ""); } }
+                                    TrackButton { symbol: track.locked ? ActionSymbol.lock : ActionSymbol.unlock; label: (track.locked ? "Unlock " : "Lock ") + track.name; clicked => { root.track_action(track.id, "lock", ""); } }
+                                    TrackButton { symbol: ActionSymbol.up; label: "Move " + track.name + " up"; active: index > 0 && !track.locked; clicked => { root.track_action(track.id, "up", ""); } }
+                                    TrackButton { symbol: ActionSymbol.down; label: "Move " + track.name + " down"; active: index + 1 < root.tracks.length && !track.locked; clicked => { root.track_action(track.id, "down", ""); } }
+                                    TrackButton { symbol: ActionSymbol.delete; label: "Delete empty " + track.name; active: root.tracks.length > 1 && !track.locked; clicked => { root.track_action(track.id, "delete", ""); } }
                                 }
                                 TrackButton {
-                                    x: 5px; y: 65px; width: 42px; height: 17px; glyph: "Sync"; selected: track.sync_ripple;
+                                    x: 5px; y: 65px; width: 42px; height: 17px; symbol: ActionSymbol.sync; selected: track.sync_ripple;
                                     label: "Ripple sync " + track.name;
                                     accessible-description: track.sync_ripple ? "Ripple sync enabled" : "Ripple sync disabled";
                                     clicked => { root.track_action(track.id, "sync-ripple", ""); }
@@ -1646,32 +1708,32 @@ export component EditorWindow inherits Window {
                             }
                             for track[index] in root.audio_tracks: Rectangle {
                                 y: (root.tracks.length + index) * 84px + timeline_scroll.content-y;
-                                height: 84px; width: parent.width; background: #223031;
+                                height: 84px; width: parent.width; background: #2f273b;
                                 border-width: 1px; border-color: root.border;
                                 Text { x: 8px; y: 5px; text: track.name; color: root.text; font-size: 11px; }
                                 Rectangle {
                                     property <int> percent: index < root.audio_track_peaks.length ? root.audio_track_peaks[index] : 0;
-                                    x: 5px; y: 23px; width: parent.width - 10px; height: 4px; background: #172122;
+                                    x: 5px; y: 23px; width: parent.width - 10px; height: 4px; background: #211b29;
                                     accessible-role: AccessibleRole.text;
                                     accessible-label: track.name + " level";
                                     accessible-description: self.percent + "%";
-                                    Rectangle { width: parent.width * min(100, parent.percent) / 100; height: parent.height; background: parent.percent > 100 ? #ff796d : #48c9a5; }
+                                    Rectangle { width: parent.width * min(100, parent.percent) / 100; height: parent.height; background: parent.percent > 100 ? #ff796d : #b486ff; }
                                 }
 
                                 HorizontalLayout {
                                     x: 5px; y: 30px; height: 28px; width: parent.width - 10px; spacing: 3px;
-                                    TrackButton { glyph: track.muted ? "×" : "♪"; label: (track.muted ? "Unmute " : "Mute ") + track.name; clicked => { root.audio_track_action(track.id, "mute", ""); } }
-                                    TrackButton { glyph: track.locked ? "◆" : "◇"; label: (track.locked ? "Unlock " : "Lock ") + track.name; clicked => { root.audio_track_action(track.id, "lock", ""); } }
+                                    TrackButton { symbol: track.muted ? ActionSymbol.audio-off : ActionSymbol.audio; label: (track.muted ? "Unmute " : "Mute ") + track.name; clicked => { root.audio_track_action(track.id, "mute", ""); } }
+                                    TrackButton { symbol: track.locked ? ActionSymbol.lock : ActionSymbol.unlock; label: (track.locked ? "Unlock " : "Lock ") + track.name; clicked => { root.audio_track_action(track.id, "lock", ""); } }
                                     LineEdit { text: track.gain; accessible-label: track.name + " gain (%)"; accepted(value) => { root.audio_track_action(track.id, "gain", value); } }
                                 }
                                 TrackButton {
-                                    x: 5px; y: 64px; width: 42px; height: 17px; glyph: "Sync"; selected: track.sync_ripple;
+                                    x: 5px; y: 64px; width: 42px; height: 17px; symbol: ActionSymbol.sync; selected: track.sync_ripple;
                                     label: "Ripple sync " + track.name;
                                     accessible-description: track.sync_ripple ? "Ripple sync enabled" : "Ripple sync disabled";
                                     clicked => { root.audio_track_action(track.id, "sync-ripple", ""); }
                                 }
                                 TrackButton {
-                                    x: 50px; y: 64px; width: 42px; height: 17px; glyph: "Solo"; selected: track.solo;
+                                    x: 50px; y: 64px; width: 42px; height: 17px; symbol: ActionSymbol.solo; selected: track.solo;
                                     label: "Solo " + track.name;
                                     accessible-description: track.solo ? "Solo enabled" : "Solo disabled";
                                     clicked => { root.audio_track_action(track.id, "solo", ""); }
@@ -1696,11 +1758,11 @@ export component EditorWindow inherits Window {
                                 width: timeline_scroll.content-width; height: timeline_scroll.content-height; background: #17191b;
                                 for track[index] in root.tracks: Rectangle {
                                     y: index * 84px; height: 84px; width: parent.width;
-                                    background: track.selected ? #232d2e : #1e2527; border-width: 1px; border-color: #30363b;
+                                    background: track.selected ? #31283d : #25212d; border-width: 1px; border-color: #30363b;
                                 }
                                 for track[index] in root.audio_tracks: Rectangle {
                                     y: (root.tracks.length + index) * 84px; height: 84px; width: parent.width;
-                                    background: #1b292a; border-width: 1px; border-color: #30484a;
+                                    background: #2b2336; border-width: 1px; border-color: #49375f;
                                 }
                                 for tick in Math.ceil(timeline_scroll.visible-width / 1px / max(0.0001, root.timeline_zoom) / root.ruler_step) + 2: Rectangle {
                                     private property <int> frame: (tick + Math.floor(-timeline_scroll.content-x / 1px / max(0.0001, root.timeline_zoom) / root.ruler_step)) * root.ruler_step;
@@ -1773,9 +1835,9 @@ export component EditorWindow inherits Window {
                                 current-index <=> root.motion_channel_index;
                                 selected => { root.motion_action("channel", self.current-index, 0, false); }
                             }
-                            Button { text: "Copy keyframes"; enabled: root.motion_has_selection; clicked => { root.motion_action("copy", 0, 0, false); } }
-                            Button { text: "Paste keyframes"; enabled: root.motion_can_paste && root.motion_writable; clicked => { root.motion_action("paste", 0, 0, false); } }
-                            Button { text: "Delete keyframes"; enabled: root.motion_has_selection && root.motion_writable; clicked => { root.motion_action("delete", 0, 0, false); } }
+                            ToolButton { label: "Copy keyframes"; symbol: ActionSymbol.copy; active: root.motion_has_selection; clicked => { root.motion_action("copy", 0, 0, false); } }
+                            ToolButton { label: "Paste keyframes"; symbol: ActionSymbol.paste; active: root.motion_can_paste && root.motion_writable; clicked => { root.motion_action("paste", 0, 0, false); } }
+                            ToolButton { label: "Delete keyframes"; symbol: ActionSymbol.delete; active: root.motion_has_selection && root.motion_writable; clicked => { root.motion_action("delete", 0, 0, false); } }
                             if root.motion_has_curve: ComboBox {
                                 width: 108px; model: ["Hold", "Linear", "Smooth", "Bezier"];
                                 enabled: root.motion_writable;
@@ -1851,9 +1913,9 @@ export component EditorWindow inherits Window {
                         }
                         if root.motion_effect_visible: HorizontalLayout {
                             spacing: 5px;
-                            Button {
-                                text: root.motion_effect_key_here ? "Remove effect keyframe" : "Add effect keyframe";
-                                enabled: root.motion_writable;
+                            ToolButton {
+                                label: root.motion_effect_key_here ? "Remove effect keyframe" : "Add effect keyframe"; symbol: root.motion_effect_key_here ? ActionSymbol.keyframe-remove : ActionSymbol.keyframe-add; show-label: true;
+                                active: root.motion_writable;
                                 clicked => { root.motion_effect_key(""); }
                             }
                             LineEdit {
@@ -1867,12 +1929,18 @@ export component EditorWindow inherits Window {
                             background: #22292d; border-radius: 4px; vertical-stretch: 1;
                             accessible-role: groupbox; accessible-label: "Clip keyframe track";
                             property <float> scale: max(0.0001, (self.width - 24px) / 1px / max(1, root.motion_duration - 1));
-                            Rectangle { x: 12px; y: parent.height / 2; width: parent.width - 24px; height: 1px; background: #6f827e; }
+                            Rectangle { x: 12px; y: parent.height / 2; width: parent.width - 24px; height: 1px; background: #7d708d; }
                             for key in root.motion_keys: Rectangle {
                                 property <int> offset: 0;
                                 x: 5px + (key.frame - root.motion_start + self.offset) * key_rail.scale * 1px;
                                 y: (parent.height - self.height) / 2; width: 14px; height: 22px;
-                                Text { width: parent.width; height: parent.height; text: "◆"; color: key.selected ? #ffd789 : root.accent; horizontal-alignment: center; vertical-alignment: center; }
+                                ActionIcon {
+                                    x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                                    width: 12px; height: 12px;
+                                    symbol: ActionSymbol.keyframe;
+                                    stroke: key.selected ? #ffd789 : Theme.accent-text;
+                                    fill: key.selected ? #ffd789 : Theme.accent-text;
+                                }
                                 ClipGestureArea {
                                     zoom: key_rail.scale; cancel_token: root.cancel_token;
                                     accessible-role: button; accessible-label: "Keyframe " + key.frame;
@@ -1889,22 +1957,16 @@ export component EditorWindow inherits Window {
                             }
                         }
                     }
-                    Rectangle { height: 30px; background: #151719; HorizontalLayout { padding-left: 12px; padding-right: 12px; Text { text: root.clips.length + " video · " + root.audio_clips.length + " audio · " + root.sequence_duration + " frames"; color: root.secondary; font-size: 11px; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } if root.selection_size > 1: Text { text: root.selection_size + " selected"; color: root.accent; font-size: 11px; vertical-alignment: center; }
-                        Button {
-                            text: root.motion_open ? "Hide keyframes" : "Show keyframes";
-                            enabled: root.selected_clip_id != "";
+                    Rectangle { height: 30px; background: #151719; HorizontalLayout { padding-left: 12px; padding-right: 12px; Text { text: root.clips.length + " video · " + root.audio_clips.length + " audio · " + root.sequence_duration + " frames"; color: root.secondary; font-size: 11px; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } if root.selection_size > 1: Text { text: root.selection_size + " selected"; color: Theme.accent-text; font-size: 11px; vertical-alignment: center; }
+                        ToolButton {
+                            label: root.motion_open ? "Hide keyframes" : "Show keyframes"; symbol: ActionSymbol.keyframe; show-label: true; selected: root.motion_open;
+                            active: root.selected_clip_id != "";
                             clicked => { editor_focus.focus(); root.motion_action("toggle", 0, 0, false); }
                         }
                         if root.marker_here: LineEdit { width: 156px; text: root.marker_name; accessible-label: "Marker name"; accepted(value) => { root.marker_name_changed(value); } }
-                        Button { text: root.marker_here ? "Remove marker" : "Add marker"; enabled: root.sequence_duration > 0; clicked => { editor_focus.focus(); root.project_action("toggle-marker"); } }
+                        ToolButton { label: root.marker_here ? "Remove marker" : "Add marker"; symbol: root.marker_here ? ActionSymbol.marker-remove : ActionSymbol.marker-add; show-label: true; active: root.sequence_duration > 0; clicked => { editor_focus.focus(); root.project_action("toggle-marker"); } }
                         Text { text: root.audio_level; color: root.secondary; font-size: 11px; vertical-alignment: center; } } }
                 }
-            }
-            if root.recovery_available: HorizontalLayout {
-                height: 35px; padding-left: 12px; padding-right: 12px; spacing: 8px;
-                Text { text: "An autosaved edit is available"; color: root.text; vertical-alignment: center; }
-                Button { text: "Recover autosave"; clicked => { root.project_action("recover-autosave"); } }
-                Button { text: "Discard autosave"; clicked => { root.project_action("discard-autosave"); } }
             }
             Rectangle { height: 26px; background: #121415; HorizontalLayout { padding-left: 12px; padding-right: 12px; spacing: 12px; Text { text: root.export_status == "" ? root.project_status : root.export_status; color: #939ba2; font-size: 11px; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; } Text { text: root.project_data_width + " × " + root.project_data_height + " · " + root.sequence_fps + " fps"; color: #939ba2; font-size: 11px; vertical-alignment: center; } } }
         }
@@ -1932,14 +1994,14 @@ export component EditorWindow inherits Window {
                     }
                     HorizontalLayout {
                         spacing: 6px;
-                        Button { text: "Duplicate grade"; clicked => { root.grade_action("duplicate", 0, ""); } }
-                        Button { text: "Remove grade"; enabled: root.grade_names.length > 1; clicked => { root.grade_action("remove", 0, ""); } }
-                        Button { text: "Close versions"; clicked => { root.grades_open = false; editor_focus.focus(); } }
+                        ToolButton { label: "Duplicate grade"; symbol: ActionSymbol.copy; show-label: true; clicked => { root.grade_action("duplicate", 0, ""); } }
+                        ToolButton { label: "Remove grade"; symbol: ActionSymbol.delete; show-label: true; active: root.grade_names.length > 1; clicked => { root.grade_action("remove", 0, ""); } }
+                        ToolButton { label: "Close versions"; symbol: ActionSymbol.close; clicked => { root.grades_open = false; editor_focus.focus(); } }
                     }
                     HorizontalLayout {
                         spacing: 6px;
-                        Button { text: "Copy grade"; clicked => { root.grade_action("copy", 0, ""); } }
-                        Button { text: "Paste grade"; enabled: root.grade_can_paste && root.selected_clip_writable; clicked => { root.grade_action("paste", 0, ""); } }
+                        ToolButton { label: "Copy grade"; symbol: ActionSymbol.copy; show-label: true; clicked => { root.grade_action("copy", 0, ""); } }
+                        ToolButton { label: "Paste grade"; symbol: ActionSymbol.paste; show-label: true; active: root.grade_can_paste && root.selected_clip_writable; clicked => { root.grade_action("paste", 0, ""); } }
                     }
                 }
             }
@@ -1971,8 +2033,8 @@ export component EditorWindow inherits Window {
                                         Text { text: job.phase + " · " + job.path; color: root.text; overflow: elide; font-size: 12px; }
                                         Text { text: job.details; color: root.secondary; overflow: elide; font-size: 11px; }
                                     }
-                                    if job.can_cancel: Button { text: "Cancel job"; clicked => { root.delivery_queue_action("cancel", index); } }
-                                    if job.can_retry: Button { text: "Retry job"; clicked => { root.delivery_queue_action("retry", index); } }
+                                    if job.can_cancel: ToolButton { label: "Cancel job"; symbol: ActionSymbol.stop; show-label: true; clicked => { root.delivery_queue_action("cancel", index); } }
+                                    if job.can_retry: ToolButton { label: "Retry job"; symbol: ActionSymbol.history; show-label: true; clicked => { root.delivery_queue_action("retry", index); } }
                                 }
                             }
                         }
@@ -1980,8 +2042,8 @@ export component EditorWindow inherits Window {
                     HorizontalLayout {
                         spacing: 8px;
                         Rectangle { horizontal-stretch: 1; }
-                        Button { text: "Close queue"; clicked => { root.delivery_queue_open = false; editor_focus.focus(); } }
-                        Button { text: "Start render queue"; enabled: root.delivery_can_start; primary: true; clicked => { root.delivery_queue_action("start", 0); } }
+                        ToolButton { label: "Close queue"; symbol: ActionSymbol.close; clicked => { root.delivery_queue_open = false; editor_focus.focus(); } }
+                        ToolButton { label: "Start render queue"; symbol: ActionSymbol.play; show-label: true; active: root.delivery_can_start; primary: true; clicked => { root.delivery_queue_action("start", 0); } }
                     }
                 }
             }
@@ -2004,20 +2066,20 @@ export component EditorWindow inherits Window {
                             current-index <=> root.sequence_choice;
                             selected => { root.sequence_slot("select", self.current-index, ""); }
                         }
-                        Button { text: "New sequence"; clicked => { root.sequence_slot("create", 0, ""); } }
-                        Button { text: "Duplicate sequence"; clicked => { root.sequence_slot("duplicate", 0, ""); } }
+                        ToolButton { label: "New sequence"; symbol: ActionSymbol.add; show-label: true; clicked => { root.sequence_slot("create", 0, ""); } }
+                        ToolButton { label: "Duplicate sequence"; symbol: ActionSymbol.copy; show-label: true; clicked => { root.sequence_slot("duplicate", 0, ""); } }
                     }
                     HorizontalLayout {
                         spacing: 6px;
-                        Button { text: "Import OTIO"; clicked => { root.settings_open = false; root.project_action("import-otio"); } }
-                        Button { text: "Audio delivery"; clicked => { root.settings_open = false; root.project_action("deliver-audio"); } }
-                        Button { text: "ProRes master"; clicked => { root.settings_open = false; root.project_action("export-master"); } }
-                        Button { text: "Export OTIO"; clicked => { root.settings_open = false; root.project_action("export-otio"); } }
+                        ToolButton { label: "Import OTIO"; symbol: ActionSymbol.import-file; show-label: true; clicked => { root.settings_open = false; root.project_action("import-otio"); } }
+                        ToolButton { label: "Audio delivery"; symbol: ActionSymbol.audio; show-label: true; clicked => { root.settings_open = false; root.project_action("deliver-audio"); } }
+                        ToolButton { label: "ProRes master"; symbol: ActionSymbol.film; show-label: true; clicked => { root.settings_open = false; root.project_action("export-master"); } }
+                        ToolButton { label: "Export OTIO"; symbol: ActionSymbol.export-file; show-label: true; clicked => { root.settings_open = false; root.project_action("export-otio"); } }
                     }
                     if root.camera_angles.length > 0: HorizontalLayout {
                         spacing: 8px;
-                        Button { text: "Camera angles"; enabled: root.camera_angles.length > 1; clicked => { root.settings_open = false; editor_focus.focus(); root.project_action("camera-monitor"); } }
-                        Button { text: "Clear camera sync"; clicked => { root.settings_open = false; root.project_action("clear-cameras"); } }
+                        ToolButton { label: "Camera angles"; symbol: ActionSymbol.camera; show-label: true; active: root.camera_angles.length > 1; clicked => { root.settings_open = false; editor_focus.focus(); root.project_action("camera-monitor"); } }
+                        ToolButton { label: "Clear camera sync"; symbol: ActionSymbol.unlink; show-label: true; clicked => { root.settings_open = false; root.project_action("clear-cameras"); } }
                     }
                     LineEdit {
                         property <string> sequence_label: root.active_sequence_name;
@@ -2031,8 +2093,8 @@ export component EditorWindow inherits Window {
                             accessible-label: "Nested sequence source"; model: root.nested_source_names;
                             current-index <=> root.nested_source_choice;
                         }
-                        Button {
-                            text: "Nest at playhead";
+                        ToolButton {
+                            label: "Nest at playhead"; symbol: ActionSymbol.layers; show-label: true;
                             clicked => { root.sequence_slot("nest", root.nested_source_choice, ""); }
                         }
                     }
@@ -2056,9 +2118,9 @@ export component EditorWindow inherits Window {
                     }
                     HorizontalLayout {
                         spacing: 8px;
-                        Button {
-                            text: "Toggle HDR monitor";
-                            enabled: root.sequence_managed_color || root.hdr_monitor_status != "HDR monitor closed";
+                        ToolButton {
+                            label: "Toggle HDR monitor"; symbol: ActionSymbol.monitor; show-label: true;
+                            active: root.sequence_managed_color || root.hdr_monitor_status != "HDR monitor closed";
                             clicked => { root.toggle_hdr_monitor(); root.settings_open = false; }
                         }
                         Text { text: root.hdr_monitor_status; color: root.secondary; vertical-alignment: center; }
@@ -2078,8 +2140,8 @@ export component EditorWindow inherits Window {
                     Rectangle { vertical-stretch: 1; }
                     HorizontalLayout {
                         spacing: 10px;
-                        Button { text: "Cancel"; clicked => { root.settings_open = false; editor_focus.focus(); } }
-                        Button { text: "Apply settings"; primary: true; clicked => { root.sequence_settings(root.draft_width, root.draft_height, root.draft_fps_numerator, root.draft_fps_denominator); root.settings_open = false; editor_focus.focus(); } }
+                        ToolButton { label: "Cancel"; symbol: ActionSymbol.close; show-label: true; clicked => { root.settings_open = false; editor_focus.focus(); } }
+                        ToolButton { label: "Apply settings"; symbol: ActionSymbol.check; show-label: true; primary: true; clicked => { root.sequence_settings(root.draft_width, root.draft_height, root.draft_fps_numerator, root.draft_fps_denominator); root.settings_open = false; editor_focus.focus(); } }
                     }
                 }
             }
@@ -2119,12 +2181,12 @@ export component EditorWindow inherits Window {
                     }
                     HorizontalLayout {
                         spacing: 8px;
-                        Button {
-                            text: root.transcript_busy ? "Cancel transcription" : "Close transcript";
+                        ToolButton {
+                            label: root.transcript_busy ? "Cancel transcription" : "Close transcript"; symbol: root.transcript_busy ? ActionSymbol.stop : ActionSymbol.close; show-label: true;
                             clicked => { root.transcript_action("close", -1, ""); editor_focus.focus(); }
                         }
-                        Button {
-                            text: "Create rough cut with subtitles"; primary: true; enabled: root.transcript_can_build;
+                        ToolButton {
+                            label: "Create rough cut with subtitles"; symbol: ActionSymbol.subtitle; show-label: true; primary: true; active: root.transcript_can_build;
                             clicked => { root.transcript_action("build", -1, ""); editor_focus.focus(); }
                         }
                     }
@@ -2212,19 +2274,19 @@ export component EditorWindow inherits Window {
                             placeholder-text: root.file_dialog_kind == "deliver-audio" ? "/path/to/delivery.audio" : root.file_dialog_kind == "export-master" ? "/path/to/master.mov" : root.file_dialog_kind == "import-otio" || root.file_dialog_kind == "export-otio" ? "/path/to/timeline.otio" : root.file_dialog_kind == "lut" ? "/path/to/grade.cube" : root.file_dialog_kind == "srt" || root.file_dialog_kind == "export-srt" ? "/path/to/subtitles.srt" : root.file_dialog_kind == "import" || root.file_dialog_kind == "relink" ? "/path/to/media" : root.file_dialog_kind == "export" ? "/path/to/video.mp4" : "/path/to/project.oqvideo.json";
                             accepted(value) => { root.submit_file(); }
                         }
-                        Button { text: "Browse…"; clicked => { root.project_action("browse-" + root.file_dialog_kind); } }
+                        ToolButton { label: "Browse…"; symbol: ActionSymbol.folder; show-label: true; clicked => { root.project_action("browse-" + root.file_dialog_kind); } }
                     }
                     Text { text: root.io_status; color: root.secondary; font-size: 11px; wrap: word-wrap; }
                     Rectangle { vertical-stretch: 1; }
                     HorizontalLayout {
                         spacing: 10px;
                         Rectangle { horizontal-stretch: 1; }
-                        Button { text: "Cancel"; clicked => { root.file_dialog_open = false; editor_focus.focus(); } }
-                        if root.file_dialog_kind == "export": Button {
-                            text: "Add to queue";
+                        ToolButton { label: "Cancel"; symbol: ActionSymbol.close; show-label: true; clicked => { root.file_dialog_open = false; editor_focus.focus(); } }
+                        if root.file_dialog_kind == "export": ToolButton {
+                            label: "Add to queue"; symbol: ActionSymbol.queue; show-label: true;
                             clicked => { root.file_dialog_open = false; editor_focus.focus(); root.file_submit("queue-export", root.file_path); }
                         }
-                        Button { text: root.file_dialog_kind == "deliver-audio" ? "Save audio delivery" : root.file_dialog_kind == "export-master" ? "Save ProRes master" : root.file_dialog_kind == "import-otio" ? "Open OTIO timeline" : root.file_dialog_kind == "export-otio" ? "Save OTIO timeline" : root.file_dialog_kind == "import-files" ? "Import selected files" : root.file_dialog_kind == "relink-folder" ? "Search folder" : root.file_dialog_kind == "save-as" ? "Save project" : root.file_dialog_kind == "open" ? "Open project" : root.file_dialog_kind == "relink" ? "Relink media" : root.file_dialog_kind == "export" ? "Export MP4" : root.file_dialog_kind == "export-srt" ? "Save SRT" : root.file_dialog_kind == "lut" ? "Load CUBE LUT" : root.file_dialog_kind == "srt" ? "Import subtitles" : "Import media"; primary: true; clicked => { root.submit_file(); } }
+                        ToolButton { label: root.file_dialog_kind == "deliver-audio" ? "Save audio delivery" : root.file_dialog_kind == "export-master" ? "Save ProRes master" : root.file_dialog_kind == "import-otio" ? "Open OTIO timeline" : root.file_dialog_kind == "export-otio" ? "Save OTIO timeline" : root.file_dialog_kind == "import-files" ? "Import selected files" : root.file_dialog_kind == "relink-folder" ? "Search folder" : root.file_dialog_kind == "save-as" ? "Save project" : root.file_dialog_kind == "open" ? "Open project" : root.file_dialog_kind == "relink" ? "Relink media" : root.file_dialog_kind == "export" ? "Export MP4" : root.file_dialog_kind == "export-srt" ? "Save SRT" : root.file_dialog_kind == "lut" ? "Load CUBE LUT" : root.file_dialog_kind == "srt" ? "Import subtitles" : "Import media"; symbol: root.file_dialog_kind == "export" || root.file_dialog_kind == "export-srt" || root.file_dialog_kind == "export-otio" ? ActionSymbol.export-file : root.file_dialog_kind == "save-as" || root.file_dialog_kind == "deliver-audio" || root.file_dialog_kind == "export-master" ? ActionSymbol.save : root.file_dialog_kind == "open" || root.file_dialog_kind == "relink-folder" ? ActionSymbol.folder : ActionSymbol.import-file; show-label: true; primary: true; clicked => { root.submit_file(); } }
                     }
                 }
             }
