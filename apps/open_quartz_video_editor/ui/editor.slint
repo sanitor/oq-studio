@@ -502,6 +502,7 @@ export component EditorWindow inherits Window {
     in property <bool> camera_log_available;
     in-out property <int> camera_log_index;
     callback camera_log_changed(int);
+    in property <bool> has_selected_asset;
     in property <string> selected_asset_name: "No media selected";
     in property <string> selected_asset_details: "Import a local H.264 or HEVC clip";
     in property <string> selected_clip_name: "No clip selected";
@@ -1014,7 +1015,19 @@ export component EditorWindow inherits Window {
                             spacing: 0px;
                             HorizontalLayout {
                                 height: 38px; padding-left: 12px; padding-right: 8px; spacing: 2px; cross-axis-alignment: center;
-                                Text { text: "Media library"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; horizontal-stretch: 1; }
+                                LineEdit {
+                                    accessible-label: "Search media";
+                                    text <=> root.search_query;
+                                    placeholder-text: "Search media";
+                                    min-width: 0px;
+                                    horizontal-stretch: 1;
+                                    edited(value) => { root.search_changed(value); }
+                                }
+                                ToolButton {
+                                    label: "Transcribe selected media"; symbol: ActionSymbol.mic;
+                                    active: root.has_selected_asset;
+                                    clicked => { root.project_action("transcribe"); }
+                                }
                                 if root.proxy_can_prepare_batch: ToolButton { label: "Prepare all proxies"; symbol: ActionSymbol.proxy; active: !root.proxy_building; clicked => { root.project_action("prepare-proxy-batch"); } }
                                 if root.has_offline_assets: ToolButton { label: "Relink folder"; symbol: ActionSymbol.folder; clicked => { root.project_action("relink-folder"); } }
                                 ToolButton { label: "Import files"; symbol: ActionSymbol.track-add; clicked => { root.project_action("import-files"); } }
@@ -1029,12 +1042,7 @@ export component EditorWindow inherits Window {
                                 }
                                 if root.proxy_status != "": Text { text: root.proxy_status; color: root.secondary; font-size: 11px; wrap: word-wrap; }
                             }
-                            LineEdit { accessible-label: "Search media"; text <=> root.search_query; placeholder-text: "Search media"; edited(value) => { root.search_changed(value); } }
-                            if root.selected_asset_name != "": ToolButton {
-                                label: "Transcribe selected media"; symbol: ActionSymbol.mic; show-label: true;
-                                clicked => { root.project_action("transcribe"); }
-                            }
-                            HorizontalLayout { height: 30px; padding-left: 14px; padding-right: 12px; Text { text: "Project media"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } Text { text: root.assets.length + " items"; color: root.secondary; font-size: 11px; vertical-alignment: center; } }
+                            HorizontalLayout { height: 30px; padding-left: 14px; padding-right: 12px; Text { text: "Project media"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; } Rectangle { horizontal-stretch: 1; } Text { text: root.assets.length + " items"; color: root.secondary; font-size: 11px; vertical-alignment: center; } }
                             ScrollView {
                                 horizontal-stretch: 1; vertical-stretch: 1;
                                 VerticalLayout {
@@ -1094,7 +1102,7 @@ export component EditorWindow inherits Window {
                                     }
                                     for group in root.pipeline_effect_groups: VerticalLayout {
                                         spacing: 5px;
-                                        Text { text: group.label; color: Theme.accent-text; font-size: 10px; font-weight: 700; }
+                                        Text { text: group.label; color: root.text; font-size: 10px; font-weight: 700; }
                                         Rectangle {
                                             height: Math.ceil(group.effects.length / 3) * 75px - 6px;
                                             for effect[index] in group.effects: NodeEffectTile {
@@ -1319,7 +1327,7 @@ export component EditorWindow inherits Window {
                         spacing: 0px;
                         HorizontalLayout {
                             height: 36px; padding-left: 14px; padding-right: 14px; spacing: 10px;
-                            Text { text: "Clip pipeline"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; }
+                            Text { text: "Clip pipeline"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; }
                             Text { text: root.selected_clip_id == "" ? "Select a timeline clip" : root.selected_clip_name; color: root.secondary; overflow: elide; horizontal-stretch: 1; vertical-alignment: center; }
                         }
                         if root.pipeline_tab_clips.length > 0: clip-tabs-view := ScrollView {
@@ -1383,7 +1391,7 @@ export component EditorWindow inherits Window {
                         spacing: 0px;
                         if root.nodes_open: VerticalLayout {
                             spacing: 0px;
-                            HorizontalLayout { height: 44px; padding-left: 14px; Text { text: "Node inspector"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
+                            HorizontalLayout { height: 44px; padding-left: 14px; Text { text: "Node inspector"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
                             Inspector {
                                 horizontal-stretch: 1; vertical-stretch: 1;
                                 node-id: root.pipeline_node_id; has-selection: root.pipeline_has_selection; node-type: root.pipeline_node_type; selection-message: root.pipeline_selection_message;
@@ -1415,7 +1423,7 @@ export component EditorWindow inherits Window {
                             if root.pipeline_error != "": Text { text: root.pipeline_error; color: #ffaaaa; font-size: 11px; wrap: word-wrap; }
                         }
                         if !root.nodes_open: VerticalLayout {
-                            HorizontalLayout { height: 44px; padding-left: 16px; Text { text: "Clip properties"; color: Theme.accent-text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
+                            HorizontalLayout { height: 44px; padding-left: 16px; Text { text: "Clip properties"; color: root.text; font-size: 12px; font-weight: 600; vertical-alignment: center; } }
                             if root.audio_clip_id != "": audio_properties := ScrollView { horizontal-stretch: 1; vertical-stretch: 1; VerticalLayout { padding: 14px; spacing: 12px;
                                 Text { text: root.audio_clip_name; color: root.text; wrap: word-wrap; }
                                 if root.audio_clip_speed != "100": Text { text: root.audio_clip_speed + "% speed"; color: root.secondary; font-size: 11px; }
@@ -1471,7 +1479,7 @@ export component EditorWindow inherits Window {
                                     spacing: 8px;
                                     HorizontalLayout {
                                         height: 28px;
-                                        Text { text: "Transform"; color: Theme.accent-text; vertical-alignment: center; }
+                                        Text { text: "Transform"; color: root.text; vertical-alignment: center; }
                                         ToolButton { label: "Reset"; symbol: ActionSymbol.history; show-label: true; active: root.selected_clip_writable; clicked => { root.transform_field("reset", ""); } }
                                     }
                                     TimingField { label: "Position X (px)"; value: root.selected_clip_x; enabled: root.spatial_editable; committed(value) => { root.transform_field("x", value); } }
@@ -1491,7 +1499,7 @@ export component EditorWindow inherits Window {
                                     TimingField { label: "Opacity (%)"; value: root.selected_clip_opacity; enabled: root.opacity_editable; committed(value) => { root.transform_field("opacity", value); } }
                                     if !root.selected_clip_uses_sequence_timing: ToolButton { label: root.on_opacity_key ? "Remove opacity keyframe" : "Add opacity keyframe"; symbol: root.on_opacity_key ? ActionSymbol.keyframe-remove : ActionSymbol.keyframe-add; show-label: true; active: root.opacity_key_enabled; clicked => { root.project_action(root.on_opacity_key ? "remove-opacity-key" : "add-opacity-key"); } }
                                     TimingField { label: "Exposure (EV)"; value: root.selected_clip_exposure; enabled: root.selected_clip_writable; committed(value) => { root.transform_field("exposure", value); } }
-                                    Text { text: "Crop"; color: Theme.accent-text; }
+                                    Text { text: "Crop"; color: root.text; }
                                     TimingField { label: "Crop left (%)"; value: root.crop_left; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-left", value); } }
                                     TimingField { label: "Crop top (%)"; value: root.crop_top; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-top", value); } }
                                     TimingField { label: "Crop right (%)"; value: root.crop_right; enabled: root.crop_editable; committed(value) => { root.transform_field("crop-right", value); } }
@@ -1501,7 +1509,7 @@ export component EditorWindow inherits Window {
                                         active: root.spatial_key_enabled;
                                         clicked => { root.project_action("toggle-crop-key"); }
                                     }
-                                    Text { text: "Mask"; color: Theme.accent-text; }
+                                    Text { text: "Mask"; color: root.text; }
                                     ComboBox {
                                         accessible-label: "Mask shape"; model: ["None", "Rectangle", "Ellipse", "Polygon"];
                                         current-index <=> root.mask_shape; enabled: root.selected_clip_writable;

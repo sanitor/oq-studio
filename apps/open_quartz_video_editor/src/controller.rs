@@ -2737,11 +2737,12 @@ impl Controller {
         reconcile(&self.clip_model, clips, |row| row.id.as_str(), same_clip_row);
         self.timeline_window_dirty = true;
         self.refresh_timeline_window();
-        if let Some(asset) = self
+        let selected_asset = self
             .selected_asset
             .as_ref()
-            .and_then(|id| self.document.asset(id))
-        {
+            .and_then(|id| self.document.asset(id));
+        window.set_has_selected_asset(selected_asset.is_some());
+        if let Some(asset) = selected_asset {
             window.set_camera_log_available(asset.has_video());
             window.set_camera_log_index(asset.camera_log.map_or(0, |profile| profile.index() as i32));
             window.set_selected_asset_name(asset.name.clone().into());
