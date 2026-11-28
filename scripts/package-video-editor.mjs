@@ -45,12 +45,11 @@ export async function packageVideoEditor(root, binary) {
     await copyFile(binary, executable);
     await chmod(executable, 0o755);
 
-    const source = join(root, 'apps', 'open_quartz_slint');
     for (const name of libraries) await copyFile(join(mediaSdk, 'lib', name), join(runtime, name));
     for (const name of notices) await copyFile(join(mediaSdk, name), join(runtime, name));
     await copyFile(join(mediaSdk, 'bin', 'ffmpeg'), join(runtime, 'ffmpeg'));
     await chmod(join(runtime, 'ffmpeg'), 0o755);
-    await copyFile(join(source, 'icons', 'icon.icns'), join(contents, 'Resources', 'icon.icns'));
+    await copyFile(join(root, 'apps', 'open_quartz_video_editor', 'assets', 'icon.icns'), join(contents, 'Resources', 'icon.icns'));
     await copyFile(join(root, 'LICENSE'), join(contents, 'Resources', 'LICENSE.txt'));
     await writeFile(join(contents, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

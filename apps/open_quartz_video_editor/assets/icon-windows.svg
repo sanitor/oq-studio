@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>OpenQuartz Studio Windows app icon</title>
+  <rect width="1024" height="1024" rx="168" fill="#15191C"/>
+  <g fill="#9B5AFF" transform="translate(151.711390910 102.000000000) scale(2.688700898)">
+    <path d="M 134.001 152.49 L 193.756752861 255.99 L 134.001 290.49 L 14.489494278 221.49 L 14.489494278 83.49 L 134.001 14.49 L 253.512505722 83.49 L 253.512505722 221.49 L 223.634629292 238.74 L 253.512505722 290.49" fill="none" stroke="#9B5AFF" stroke-width="10.35" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="134.001" cy="152.49" r="14.49"/>
+    <circle cx="134.001" cy="290.49" r="14.49"/>
+    <circle cx="14.489494278" cy="221.49" r="14.49"/>
+    <circle cx="14.489494278" cy="83.49" r="14.49"/>
+    <circle cx="134.001" cy="14.49" r="14.49"/>
+    <circle cx="253.512505722" cy="83.49" r="14.49"/>
+    <circle cx="253.512505722" cy="290.49" r="14.49"/>
+  </g>
+</svg>

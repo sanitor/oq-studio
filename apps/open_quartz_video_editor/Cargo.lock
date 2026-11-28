@@ -3796,6 +3796,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "cosmic-text",
+ "find-msvc-tools",
  "i-slint-backend-winit",
  "i-slint-core",
  "image",
