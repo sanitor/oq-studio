@@ -8,18 +8,57 @@ import { Theme } from "../../open_quartz_slint/ui/theme.slint";
 import { CodeEditorBridge } from "code_editor.slint";
 export { CodeEditorBridge, GraphNode, GraphEdge, GraphPort, InspectorPort, InspectorUniform, InspectorFormField, InspectorFormGroup, CorrectorField, CorrectorStage }
 
-export struct PipelineEffect { label: string, index: int, glyph: string }
-export struct PipelineEffectRow { first: PipelineEffect, second: PipelineEffect }
-export struct PipelineGroup { label: string, rows: [PipelineEffectRow] }
-
+export struct PipelineEffect { label: string, index: int, thumbnail: image }
+export struct PipelineGroup { label: string, effects: [PipelineEffect] }
 
 component NodeEffectTile inherits Rectangle {
     in property <PipelineEffect> effect;
     in property <bool> enabled;
     callback clicked();
-    width: 106px; height: 120px; border-radius: 5px; background: tile.has-hover ? #2a3034 : #202427; border-width: 1px; border-color: #343b40;
-    VerticalLayout { padding: 5px; spacing: 4px; Rectangle { width: 84px; height: 84px; background: #111517; border-radius: 4px; border-width: 1px; border-color: #384247; Text { text: root.effect.glyph; width: parent.width; height: parent.height; color: #38d9c3; font-size: 27px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; } } Text { text: root.effect.label; width: parent.width; height: 20px; color: #e7eaed; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; overflow: elide; } }
-    tile := TouchArea { accessible-role: button; accessible-label: "Add " + root.effect.label + " node"; enabled: root.enabled; clicked => { root.clicked(); } }
+
+    width: 69px;
+    height: self.width;
+    border-radius: 5px;
+    background: #202427;
+    clip: true;
+
+    Image {
+        width: parent.width;
+        height: parent.height;
+        source: root.effect.thumbnail;
+        image-fit: cover;
+        opacity: root.enabled ? 1 : 0.65;
+    }
+    Rectangle {
+        y: parent.height - self.height;
+        width: parent.width;
+        height: 36px;
+        background: @linear-gradient(180deg, #10141800 0%, #101418ed 45%, #101418fa 100%);
+        Text {
+            x: 3px; y: 10px;
+            width: parent.width - 6px; height: parent.height - 12px;
+            text: root.effect.label;
+            color: #f2f5f6;
+            font-size: 10px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            wrap: word-wrap;
+            overflow: elide;
+        }
+    }
+    Rectangle {
+        width: parent.width; height: parent.height;
+        border-radius: root.border-radius;
+        border-width: 1px;
+        border-color: tile.has-hover && root.enabled ? Theme.accent : #ffffff32;
+    }
+    tile := TouchArea {
+        accessible-role: button;
+        accessible-label: "Add " + root.effect.label + " node";
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
 }
 export struct ExportJobRow { path: string, phase: string, details: string, can_cancel: bool, can_retry: bool }
 export struct TranscriptRow { index: int, label: string, checked: bool }
@@ -561,6 +600,8 @@ export component EditorWindow inherits Window {
     in property <bool> pipeline_can_paste;
     in property <int> pipeline_selection_count;
     in property <[PipelineGroup]> pipeline_effect_groups;
+    private property <string> node_search;
+    callback node_search_changed(string);
     in-out property <string> library_tab: "media";
     in property <string> pipeline_error;
     in property <string> pipeline_node_id;
@@ -1003,30 +1044,52 @@ export component EditorWindow inherits Window {
                             }
 
                         }
-                        if root.library_tab == "nodes": effects-scroll := ScrollView {
-                            horizontal-stretch: 1; vertical-stretch: 1;
-                            VerticalLayout {
-                                padding: 8px; spacing: 10px;
-                                Text { text: root.nodes_open ? "Add after selected node" : "Open Nodes workspace to add effects"; color: root.secondary; font-size: 11px; wrap: word-wrap; }
-                                if root.nodes_open: Button {
-                                    text: "Import CUBE LUT"; enabled: root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty;
-                                    clicked => { root.project_action("lut"); }
-                                }
-                                for group in root.pipeline_effect_groups: VerticalLayout {
-                                    spacing: 5px;
-                                    Text { text: group.label; color: root.accent; font-size: 10px; font-weight: 700; }
-                                    VerticalLayout {
-                                        spacing: 6px;
-                                        for row in group.rows: HorizontalLayout {
-                                            spacing: 6px;
-                                            NodeEffectTile { effect: row.first; enabled: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty; clicked => { editor_focus.focus(); root.pipeline_add_effect(row.first.index); } }
-                                            if row.second.label != "": NodeEffectTile { effect: row.second; enabled: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty; clicked => { editor_focus.focus(); root.pipeline_add_effect(row.second.index); } }
+                        if root.library_tab == "nodes": VerticalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 8px;
+                            vertical-stretch: 1;
+                            LineEdit {
+                                accessible-label: "Search nodes";
+                                placeholder-text: "Search nodes";
+                                text <=> root.node_search;
+                                edited(value) => { root.node_search_changed(value); }
+                            }
+                            Text { text: "Add after selected node"; color: root.secondary; font-size: 11px; }
+                            Button {
+                                text: "Import CUBE LUT"; enabled: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty;
+                                clicked => { root.project_action("lut"); }
+                            }
+                            effects-scroll := ScrollView {
+                                horizontal-stretch: 1;
+                                vertical-stretch: 1;
+                                VerticalLayout {
+                                    padding-bottom: 8px;
+                                    spacing: 10px;
+                                    if root.pipeline_effect_groups.length == 0: Text {
+                                        text: "No matching nodes";
+                                        color: root.secondary;
+                                        font-size: 11px;
+                                    }
+                                    for group in root.pipeline_effect_groups: VerticalLayout {
+                                        spacing: 5px;
+                                        Text { text: group.label; color: root.accent; font-size: 10px; font-weight: 700; }
+                                        Rectangle {
+                                            height: Math.ceil(group.effects.length / 3) * 75px - 6px;
+                                            for effect[index] in group.effects: NodeEffectTile {
+                                                x: Math.mod(index, 3) * 75px;
+                                                y: Math.floor(index / 3) * 75px;
+                                                effect: effect;
+                                                enabled: root.nodes_open && root.selected_clip_id != "" && !root.pipeline_busy && !root.pipeline_inspector_dirty;
+                                                clicked => { editor_focus.focus(); root.pipeline_add_effect(effect.index); }
+                                            }
                                         }
                                     }
+                                    Rectangle { vertical-stretch: 1; }
+                                }
                             }
                         }
                     }
-                }
                 }
                 Rectangle {
                     horizontal-stretch: 1; background: #101213;

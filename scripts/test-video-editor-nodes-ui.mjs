@@ -190,6 +190,12 @@ async function port(elementLabel, outputPort) {
   }
   throw Error(`Missing ${outputPort?'output':'input'} port on ${elementLabel}`);
 }
+async function waitConnectionStart() {
+  await client.waitFor(async () => {
+    try { return (await client.byLabel('Cancel connection', { role: 'Button' })).length === 1; }
+    catch (error) { if (/destroyed|stale/i.test(error.message)) return false; throw error; }
+  }, { description: 'source port activates the native connection transaction' });
+}
 async function scrollInspector(deltaY) {
   const viewport = await client.find({ id: 'Inspector::properties-scroll' });
   if (!scrollTool) {
@@ -393,6 +399,20 @@ async function runVideoCases() {
     }
     assert.deepEqual(graphFor(await save(), 'red.mp4'), graphFor(originalData, 'red.mp4'));
   });
+  await step('Fuzzy node search filters tiles, shows empty results, and clears', async () => {
+    const search = (await client.byLabel('Search nodes', { role: 'TextInput' }))[0];
+    assert(search, 'Missing node search field');
+    const tiles = () => client.byLabel(/^Add .* node$/, { role: 'Button', visible: false });
+    await client.setValue(search, 'IVRT');
+    await client.waitFor(async () => (await tiles()).map(tile => tile.accessibleLabel).join() === 'Add Invert node', {
+      description: 'case-insensitive fuzzy match for Invert',
+    });
+    await client.setValue(search, 'zzzzzz');
+    await client.waitFor(async () => (await tiles()).length === 0, { description: 'empty node search' });
+    await client.setValue(search, '');
+    await client.waitFor(async () => (await tiles()).length > 3, { description: 'restored node catalog' });
+  }, { core: true });
+
   await step('The real catalog Invert transforms red GPU video to cyan', async () => {
     await selectNode('video');
     const invert = await addEffect('Invert'); invertId = invert.id;
@@ -440,10 +460,7 @@ async function runVideoCases() {
     const customLabel=nodeState(await header(customId)).label;
     const outputLabel=nodeState(await header('output')).label;
     await client.activate(await port(customLabel, true));
-    await client.waitFor(async () => {
-      try { return (await client.byLabel('Cancel connection', { role: 'Button' })).length === 1; }
-      catch (error) { if (/destroyed|stale/i.test(error.message)) return false; throw error; }
-    }, { description: 'source port activates the native connection transaction' });
+    await waitConnectionStart();
     await client.activate(await port(outputLabel, false));
     await snapshot('09-port-bypass-green', 'green');
     let graph = graphFor(await save(), 'red.mp4');
@@ -721,6 +738,7 @@ async function runVideoCases() {
     };
     await setAmount('1'); await waitColor('red');
     await client.activate(await port(invert.label, true));
+    await waitConnectionStart();
     const overlay = await client.find({ label: /^Input blend_\d+ overlay$/, role: 'Button', visible: false });
     await client.activate(overlay); await waitColor('cyan');
     await selectNode(blend.id); const mask = await addEffect('Luma Mask'); await waitColor('masked-cyan');

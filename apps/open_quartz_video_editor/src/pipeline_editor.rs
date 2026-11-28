@@ -92,6 +92,32 @@ fn as_project(graph: Graph) -> Project {
 }
 fn sdk_error(error: open_quartz::SdkError) -> String { error.to_json() }
 
+fn filter_node_catalog(
+    groups: &[(&str, Vec<crate::PipelineEffect>)],
+    query: &str,
+) -> ModelRc<crate::PipelineGroup> {
+    fn matches_subsequence(text: &str, term: &str) -> bool {
+        let mut characters = text.chars();
+        term.chars().all(|character| characters.any(|candidate| candidate == character))
+    }
+
+    let query = query.to_lowercase();
+    let groups = groups.iter().filter_map(|(category, effects)| {
+        let category_search = category.to_ascii_lowercase();
+        let effects: Vec<_> = effects.iter().filter(|effect| {
+            let label = effect.label.to_lowercase();
+            query.split_whitespace().all(|term| {
+                matches_subsequence(&label, term) || matches_subsequence(&category_search, term)
+            })
+        }).cloned().collect();
+        (!effects.is_empty()).then(|| crate::PipelineGroup {
+            label: (*category).into(),
+            effects: ModelRc::new(VecModel::from(effects)),
+        })
+    }).collect::<Vec<_>>();
+    ModelRc::new(VecModel::from(groups))
+}
+
 impl Controller {
     pub(super) fn connect_pipeline(this: &Rc<RefCell<Self>>, window: &EditorWindow) {
         macro_rules! bind {
@@ -119,29 +145,51 @@ impl Controller {
         let mut this=this.borrow_mut();
         this.pipeline_editor.effects=crate::shader_catalog::presets().iter().filter(|preset|matches!(preset.category,"COLOR"|"FILTER"|"DISTORTION"|"BLEND")).collect::<Vec<_>>();
         this.pipeline_editor.effects.sort_by_key(|preset|if preset.category=="COLOR"{0}else{1});
-        let mut groups=Vec::new();
-        for category in ["CUSTOM","COMPOSITE","COLOR","FILTER","DISTORTION","BLEND"] {
-            let mut effects:Vec<crate::PipelineEffect>=if category=="CUSTOM" { vec![crate::PipelineEffect { label:"Custom Shader".into(), index:-1, glyph:"ƒx".into() }] }
-                else { this.pipeline_editor.effects.iter().enumerate().filter(|(_,preset)|preset.category==category).map(|(index,preset)|crate::PipelineEffect {
-                    label:preset.label.to_owned().into(), index:index as i32,
-                    glyph:match category { "COLOR"=>"C", "FILTER"=>"F", "DISTORTION"=>"D", "BLEND"=>"B", _=>"□" }.into(),
-                }).collect() };
-            if category=="COLOR" { effects.insert(0,crate::PipelineEffect { label:"Color Corrector".into(),index:-3,glyph:"C".into() }); }
-            if category == "BLEND" {
-                effects.retain(|effect| effect.label != "Blend");
+        let atlas = image::load_from_memory(include_bytes!("../ui/node-thumbnails/effects.jpg"))
+            .expect("embedded node thumbnail atlas must decode")
+            .into_rgb8();
+        let labels: Vec<&str> = serde_json::from_str(include_str!("../ui/node-thumbnails/effects.json"))
+            .expect("embedded node thumbnail labels must be valid");
+        let tile_size = atlas.width() / 8;
+        let effect = |label: &str, index| {
+            let tile_index = labels.iter().position(|name| *name == label)
+                .unwrap_or_else(|| labels.iter().position(|name| *name == "Resample").expect("source thumbnail")) as u32;
+            let tile = image::imageops::crop_imm(
+                &atlas, tile_index % 8 * tile_size, tile_index / 8 * tile_size, tile_size, tile_size,
+            ).to_image();
+            crate::PipelineEffect {
+                label: label.into(),
+                index,
+                thumbnail: slint::Image::from_rgb8(slint::SharedPixelBuffer::clone_from_slice(
+                    &tile, tile_size, tile_size,
+                )),
             }
-            if category == "COMPOSITE" {
-                effects.insert(0, crate::PipelineEffect { label: crate::person_matte::LABEL.into(), index: -6, glyph: "M".into() });
-                effects.insert(0, crate::PipelineEffect { label: "Luma Mask".into(), index: -5, glyph: "M".into() });
-                effects.insert(0, crate::PipelineEffect { label: "Blend".into(), index: -4, glyph: "B".into() });
-            }
-            let rows=effects.chunks(2).map(|pair|crate::PipelineEffectRow {
-                first:pair[0].clone(),
-                second:pair.get(1).cloned().unwrap_or_else(||crate::PipelineEffect { label:"".into(), index:-2, glyph:"".into() }),
-            }).collect::<Vec<_>>();
-            if !rows.is_empty() { groups.push(crate::PipelineGroup { label:category.into(), rows:ModelRc::new(VecModel::from(rows)) }); }
+        };
+        let mut groups = Vec::new();
+        for category in ["CUSTOM", "COMPOSITE", "COLOR", "FILTER", "DISTORTION", "BLEND"] {
+            let mut effects = match category {
+                "CUSTOM" => vec![effect("Custom Shader", -1)],
+                "COMPOSITE" => vec![
+                    effect("Blend", -4),
+                    effect("Luma Mask", -5),
+                    effect(crate::person_matte::LABEL, -6),
+                ],
+                "COLOR" => vec![effect("Color Corrector", -3)],
+                _ => Vec::new(),
+            };
+            effects.extend(this.pipeline_editor.effects.iter().enumerate()
+                .filter(|(_, preset)| preset.category == category && preset.label != "Blend")
+                .map(|(index, preset)| effect(preset.label, index as i32)));
+            groups.push((category, effects));
         }
-        window.set_pipeline_effect_groups(ModelRc::new(VecModel::from(groups)));
+
+        window.set_pipeline_effect_groups(filter_node_catalog(&groups, ""));
+        let window_ref = window.as_weak();
+        window.on_node_search_changed(move |query| {
+            if let Some(window) = window_ref.upgrade() {
+                window.set_pipeline_effect_groups(filter_node_catalog(&groups, query.as_str()));
+            }
+        });
     }
 
     fn selected_pipeline_node(&self) -> Option<ProjectNode> {
